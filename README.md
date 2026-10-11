@@ -106,13 +106,19 @@ HTTP preisgegeben werden, ist die zugehörige API standardmäßig deaktiviert.
 Für eine lokale Entwicklung muss in der Admin-Konfiguration ausdrücklich
 `Lokalen Datenpunkt-Entwicklungsmodus aktivieren` gesetzt sein. Zusätzlich
 muss die Bind-Adresse eine Loopback-Adresse (`127.0.0.1`, `::1` oder
-`localhost`) bleiben. Bei einer LAN-Bindung verweigert der Adapter die API
-auch dann, wenn der Schalter gesetzt ist.
+`localhost`) bleiben und unter `Erlaubte Datenpunkt-ID-Muster` mindestens ein
+explizites Muster konfiguriert werden, etwa `zigbee.0.*`. Ohne Allowlist bleibt
+die API deaktiviert. Bei einer LAN-Bindung verweigert der Adapter die API auch
+dann, wenn der Schalter gesetzt ist. Datenpunkte mit `common.read: false`
+werden vollständig ausgeschlossen.
 
 Nach einem Adapter-Neustart ist der Browser unter `/datenpunkte` verfügbar.
 Er verwendet `GET /api/datapoints` mit Such-, Typfilter- und
 Seitengrößenparametern. Die Schnittstelle liefert nur Werte und unkritische
 Metadaten von `state`-Objekten; es gibt keine Schreiboperationen, keine
-Adapter-Konfiguration und keine Zugangsdaten. Für LAN-Zugriff oder den
-Produktionseinsatz sind zuerst serverseitige Authentifizierung und
-Berechtigungen erforderlich.
+Adapter-Konfiguration und keine Zugangsdaten. Die Werte werden pro Ergebnisseite
+abgerufen und nur kurz begrenzt gecacht. Loopback ersetzt keine Anmeldung:
+lokale Prozesse sowie Reverse-Proxies oder Tunnel können Anfragen weiterleiten.
+Der Entwicklungsmodus darf deshalb nicht über einen Proxy veröffentlicht
+werden. Für LAN-Zugriff oder den Produktionseinsatz sind zuerst serverseitige
+Authentifizierung und Berechtigungen erforderlich.

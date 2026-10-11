@@ -7,6 +7,7 @@ declare global {
 			port: number;
 			bindAddress: string;
 			datapointApiDevelopmentMode: boolean;
+			datapointApiAllowedPatterns: string;
 		}
 	}
 }

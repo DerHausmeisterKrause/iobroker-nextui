@@ -39,13 +39,14 @@ class Nextui extends utils.Adapter {
     const port = this.getConfiguredPort();
     const bindAddress = ((_a = this.config.bindAddress) == null ? void 0 : _a.trim()) || DEFAULT_BIND_ADDRESS;
     const instance = (_b = this.namespace) != null ? _b : `nextui.${this.instance}`;
-    const datapointApiEnabled = this.config.datapointApiDevelopmentMode === true && isLoopbackAddress(bindAddress);
+    const allowedPatterns = (0, import_datapoint_api.parseAllowedPatterns)(this.config.datapointApiAllowedPatterns);
+    const datapointApiEnabled = this.config.datapointApiDevelopmentMode === true && isLoopbackAddress(bindAddress) && allowedPatterns.length > 0;
     if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
       this.log.warn(
-        "Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert, weil der HTTP-Server nicht an Loopback gebunden ist."
+        "Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert: Loopback-Bindung und mindestens ein erlaubtes ID-Muster sind erforderlich."
       );
     }
-    this.datapointApi = datapointApiEnabled ? new import_datapoint_api.DatapointApi(this) : void 0;
+    this.datapointApi = datapointApiEnabled ? new import_datapoint_api.DatapointApi(this, allowedPatterns) : void 0;
     this.webServer = new import_web_server.NextuiWebServer({
       port,
       bindAddress,

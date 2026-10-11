@@ -3,7 +3,7 @@
  */
 
 import * as utils from '@iobroker/adapter-core';
-import { DatapointApi, type DatapointAdapterApi } from './datapoint-api';
+import { DatapointApi, parseAllowedPatterns, type DatapointAdapterApi } from './datapoint-api';
 import { NextuiWebServer } from './web-server';
 
 const DEFAULT_PORT = 8090;
@@ -23,13 +23,19 @@ class Nextui extends utils.Adapter {
 		const port = this.getConfiguredPort();
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
-		const datapointApiEnabled = this.config.datapointApiDevelopmentMode === true && isLoopbackAddress(bindAddress);
+		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
+		const datapointApiEnabled =
+			this.config.datapointApiDevelopmentMode === true &&
+			isLoopbackAddress(bindAddress) &&
+			allowedPatterns.length > 0;
 		if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
 			this.log.warn(
-				'Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert, weil der HTTP-Server nicht an Loopback gebunden ist.',
+				'Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert: Loopback-Bindung und mindestens ein erlaubtes ID-Muster sind erforderlich.',
 			);
 		}
-		this.datapointApi = datapointApiEnabled ? new DatapointApi(this as unknown as DatapointAdapterApi) : undefined;
+		this.datapointApi = datapointApiEnabled
+			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
+			: undefined;
 		this.webServer = new NextuiWebServer({
 			port,
 			bindAddress,

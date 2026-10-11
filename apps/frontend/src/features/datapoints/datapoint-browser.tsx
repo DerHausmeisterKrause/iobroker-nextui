@@ -20,6 +20,8 @@ interface Datapoint {
 interface DatapointResponse {
 	items: Datapoint[];
 	total: number;
+	offset: number;
+	limit: number;
 }
 
 const filters: { value: DatapointType; label: string }[] = [
@@ -35,11 +37,12 @@ export function DatapointBrowser(): JSX.Element {
 	const [result, setResult] = useState<DatapointResponse>();
 	const [error, setError] = useState<string>();
 	const [loading, setLoading] = useState(true);
+	const [offset, setOffset] = useState(0);
 
 	useEffect(() => {
 		const controller = new AbortController();
 		const timer = window.setTimeout(() => {
-			void loadDatapoints(search, types, controller.signal)
+			void loadDatapoints(search, types, offset, controller.signal)
 				.then(setResult)
 				.catch(loadError => {
 					if ((loadError as Error).name !== 'AbortError') {
@@ -56,11 +59,12 @@ export function DatapointBrowser(): JSX.Element {
 			controller.abort();
 			window.clearTimeout(timer);
 		};
-	}, [search, types]);
+	}, [search, types, offset]);
 
 	const toggleType = (type: DatapointType): void => {
 		setLoading(true);
 		setError(undefined);
+		setOffset(0);
 		setTypes(current => (current.includes(type) ? current.filter(value => value !== type) : [...current, type]));
 	};
 
@@ -87,6 +91,7 @@ export function DatapointBrowser(): JSX.Element {
 						onChange={event => {
 							setLoading(true);
 							setError(undefined);
+							setOffset(0);
 							setSearch(event.target.value);
 						}}
 					/>
@@ -127,24 +132,69 @@ export function DatapointBrowser(): JSX.Element {
 				<p className="text-sm text-slate-500">Keine Datenpunkte gefunden.</p>
 			)}
 			{!loading && !error && result && result.items.length > 0 && (
-				<div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
-					<div className="hidden grid-cols-[minmax(12rem,2fr)_minmax(10rem,1fr)_auto_auto] gap-4 bg-slate-100 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900 sm:grid">
-						<span>Datenpunkt</span>
-						<span>Wert</span>
-						<span>Änderung</span>
-						<span>Zugriff</span>
+				<>
+					<div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+						<div className="hidden grid-cols-[minmax(12rem,2fr)_minmax(10rem,1fr)_auto_auto] gap-4 bg-slate-100 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-900 sm:grid">
+							<span>Datenpunkt</span>
+							<span>Wert</span>
+							<span>Änderung</span>
+							<span>Zugriff</span>
+						</div>
+						<ul className="divide-y divide-slate-200 dark:divide-slate-800">
+							{result.items.map(item => (
+								<DatapointRow
+									key={item.id}
+									item={item}
+								/>
+							))}
+						</ul>
 					</div>
-					<ul className="divide-y divide-slate-200 dark:divide-slate-800">
-						{result.items.map(item => (
-							<DatapointRow
-								key={item.id}
-								item={item}
-							/>
-						))}
-					</ul>
-				</div>
+					<Pagination
+						result={result}
+						loading={loading}
+						onOffsetChange={setOffset}
+					/>
+				</>
 			)}
 		</section>
+	);
+}
+
+function Pagination({
+	result,
+	loading,
+	onOffsetChange,
+}: {
+	result: DatapointResponse;
+	loading: boolean;
+	onOffsetChange: (offset: number) => void;
+}): JSX.Element {
+	const first = result.total === 0 ? 0 : result.offset + 1;
+	const last = Math.min(result.offset + result.items.length, result.total);
+	return (
+		<div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+			<p className="text-slate-500">
+				{first}–{last} von {result.total} Datenpunkten
+			</p>
+			<div className="flex gap-2">
+				<button
+					type="button"
+					className="min-h-10 rounded-lg border border-slate-300 px-3 font-semibold disabled:opacity-50 dark:border-slate-700"
+					disabled={loading || result.offset === 0}
+					onClick={() => onOffsetChange(Math.max(0, result.offset - result.limit))}
+				>
+					Zurück
+				</button>
+				<button
+					type="button"
+					className="min-h-10 rounded-lg border border-slate-300 px-3 font-semibold disabled:opacity-50 dark:border-slate-700"
+					disabled={loading || result.offset + result.items.length >= result.total}
+					onClick={() => onOffsetChange(result.offset + result.limit)}
+				>
+					Weiter
+				</button>
+			</div>
+		</div>
 	);
 }
 
@@ -178,8 +228,13 @@ function formatValue(value: Datapoint['value']): string {
 	return value === null ? 'null' : String(value);
 }
 
-async function loadDatapoints(search: string, types: DatapointType[], signal: AbortSignal): Promise<DatapointResponse> {
-	const params = new URLSearchParams({ limit: '50' });
+async function loadDatapoints(
+	search: string,
+	types: DatapointType[],
+	offset: number,
+	signal: AbortSignal,
+): Promise<DatapointResponse> {
+	const params = new URLSearchParams({ limit: '25', offset: String(offset) });
 	if (search.trim()) {
 		params.set('search', search.trim());
 	}

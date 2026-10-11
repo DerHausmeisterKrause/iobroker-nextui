@@ -18,65 +18,115 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var datapoint_api_exports = {};
 __export(datapoint_api_exports, {
-  DatapointApi: () => DatapointApi
+  DatapointApi: () => DatapointApi,
+  parseAllowedPatterns: () => parseAllowedPatterns
 });
 module.exports = __toCommonJS(datapoint_api_exports);
-const STATE_REFRESH_INTERVAL_MS = 5e3;
-const DEFAULT_LIMIT = 50;
+const STATE_CACHE_TTL_MS = 5e3;
+const STATE_CACHE_MAX_ENTRIES = 500;
+const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 class DatapointApi {
-  constructor(adapter) {
+  constructor(adapter, allowedPatterns) {
     this.adapter = adapter;
+    this.allowedPatterns = allowedPatterns;
   }
   objects;
-  states = {};
-  loadPromise;
-  lastStateRefresh = 0;
+  objectLoadPromise;
+  states = /* @__PURE__ */ new Map();
+  stateRequests = /* @__PURE__ */ new Map();
   async list(query = {}) {
-    var _a, _b, _c, _d, _e, _f;
-    await this.ensureLoaded();
-    await this.refreshStatesIfNeeded();
+    var _a, _b;
+    await this.ensureObjectIndex();
+    const offset = Math.max(0, Math.floor((_a = query.offset) != null ? _a : 0));
+    const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor((_b = query.limit) != null ? _b : DEFAULT_LIMIT)));
+    const candidates = this.filterObjects(query);
+    const page = candidates.slice(offset, offset + limit);
+    await this.ensureStates(page.map(([id]) => id));
+    return {
+      items: page.map(([id, object]) => {
+        var _a2;
+        return this.toListItem(id, object, (_a2 = this.states.get(id)) == null ? void 0 : _a2.state);
+      }).filter((item) => item !== void 0),
+      total: candidates.length,
+      offset,
+      limit
+    };
+  }
+  /** Accepts a future state subscription update without triggering a read. */
+  updateState(id, state) {
+    if (this.isAllowed(id)) {
+      this.setCachedState(id, state);
+    }
+  }
+  /** Invalidates the object index after a future object subscription notification. */
+  invalidateObjects() {
+    this.objects = void 0;
+    this.states.clear();
+  }
+  async ensureObjectIndex() {
+    var _a, _b;
+    if (this.objects || this.allowedPatterns.length === 0) {
+      (_a = this.objects) != null ? _a : this.objects = {};
+      return;
+    }
+    (_b = this.objectLoadPromise) != null ? _b : this.objectLoadPromise = this.loadObjectIndex().finally(() => {
+      this.objectLoadPromise = void 0;
+    });
+    await this.objectLoadPromise;
+  }
+  async loadObjectIndex() {
+    const responses = await Promise.all(
+      this.allowedPatterns.map((pattern) => this.adapter.getForeignObjectsAsync(pattern, "state"))
+    );
+    this.objects = Object.assign({}, ...responses);
+  }
+  filterObjects(query) {
+    var _a, _b, _c, _d;
     const search = (_b = (_a = query.search) == null ? void 0 : _a.trim().toLocaleLowerCase()) != null ? _b : "";
     const types = new Set((_c = query.types) != null ? _c : []);
-    const items = Object.entries((_d = this.objects) != null ? _d : {}).map(([id, object]) => this.toListItem(id, object, this.states[id])).filter((item) => item !== void 0).filter(
-      (item) => (!search || item.id.toLocaleLowerCase().includes(search) || item.name.toLocaleLowerCase().includes(search)) && (types.size === 0 || types.has(item.type))
-    ).sort((left, right) => left.id.localeCompare(right.id));
-    const offset = Math.max(0, Math.floor((_e = query.offset) != null ? _e : 0));
-    const limit = Math.min(MAX_LIMIT, Math.max(1, Math.floor((_f = query.limit) != null ? _f : DEFAULT_LIMIT)));
-    return { items: items.slice(offset, offset + limit), total: items.length, offset, limit };
+    return Object.entries((_d = this.objects) != null ? _d : {}).filter(([id, object]) => this.isAllowed(id) && object.common.read !== false).filter(([id, object]) => {
+      const declaredType = getDeclaredType(object.common.type);
+      return declaredType !== void 0 && (!search || id.toLocaleLowerCase().includes(search) || getName(object.common.name, id).toLocaleLowerCase().includes(search)) && (types.size === 0 || (declaredType === "string" ? types.has("string") || types.has("json") : types.has(declaredType)));
+    }).sort(([left], [right]) => left.localeCompare(right));
   }
-  /**
-   * Allows a later subscription layer to keep the cached values current without new object reads.
-   *
-   * @param id
-   * @param state
-   */
-  updateState(id, state) {
-    this.states[id] = state;
+  async ensureStates(ids) {
+    const now = Date.now();
+    const missingIds = ids.filter((id) => {
+      const cached = this.states.get(id);
+      return !cached || now - cached.fetchedAt >= STATE_CACHE_TTL_MS;
+    });
+    if (missingIds.length === 0) {
+      return;
+    }
+    const requestKey = [...missingIds].sort().join("\0");
+    let request = this.stateRequests.get(requestKey);
+    if (!request) {
+      request = this.loadStates(missingIds).finally(() => this.stateRequests.delete(requestKey));
+      this.stateRequests.set(requestKey, request);
+    }
+    await request;
   }
-  async ensureLoaded() {
+  async loadStates(ids) {
     var _a;
-    if (this.objects) {
-      return;
+    const states = await this.adapter.getForeignStatesAsync(ids);
+    for (const id of ids) {
+      this.setCachedState(id, (_a = states[id]) != null ? _a : null);
     }
-    (_a = this.loadPromise) != null ? _a : this.loadPromise = this.load();
-    await this.loadPromise;
   }
-  async load() {
-    const [objects, states] = await Promise.all([
-      this.adapter.getForeignObjectsAsync("*", "state"),
-      this.adapter.getForeignStatesAsync("*")
-    ]);
-    this.objects = objects;
-    this.states = states;
-    this.lastStateRefresh = Date.now();
-  }
-  async refreshStatesIfNeeded() {
-    if (Date.now() - this.lastStateRefresh < STATE_REFRESH_INTERVAL_MS) {
-      return;
+  setCachedState(id, state) {
+    this.states.delete(id);
+    this.states.set(id, { state, fetchedAt: Date.now() });
+    while (this.states.size > STATE_CACHE_MAX_ENTRIES) {
+      const oldest = this.states.keys().next().value;
+      if (!oldest) {
+        break;
+      }
+      this.states.delete(oldest);
     }
-    this.states = await this.adapter.getForeignStatesAsync("*");
-    this.lastStateRefresh = Date.now();
+  }
+  isAllowed(id) {
+    return this.allowedPatterns.some((pattern) => matchesPattern(id, pattern));
   }
   toListItem(id, object, state) {
     var _a;
@@ -92,12 +142,23 @@ class DatapointApi {
       value,
       unit: object.common.unit,
       role: object.common.role,
-      readable: object.common.read !== false,
+      readable: true,
       writable: object.common.write === true,
       ts: state == null ? void 0 : state.ts,
       ack: state == null ? void 0 : state.ack
     };
   }
+}
+function parseAllowedPatterns(value) {
+  return [
+    ...new Set(
+      (value != null ? value : "").split(/[\n,]/).map((pattern) => pattern.trim()).filter(Boolean)
+    )
+  ];
+}
+function matchesPattern(id, pattern) {
+  const expression = new RegExp(`^${pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*")}$`);
+  return expression.test(id);
 }
 function getName(name, fallback) {
   var _a, _b, _c;
@@ -106,15 +167,13 @@ function getName(name, fallback) {
   }
   return (_c = (_b = (_a = name == null ? void 0 : name.en) != null ? _a : name == null ? void 0 : name.de) != null ? _b : Object.values(name != null ? name : {})[0]) != null ? _c : fallback;
 }
+function getDeclaredType(objectType) {
+  return objectType === "boolean" || objectType === "number" || objectType === "string" ? objectType : void 0;
+}
 function getValueType(objectType, value) {
-  if (objectType === "boolean") {
-    return "boolean";
-  }
-  if (objectType === "number") {
-    return "number";
-  }
-  if (objectType !== "string") {
-    return void 0;
+  const declaredType = getDeclaredType(objectType);
+  if (declaredType !== "string") {
+    return declaredType;
   }
   return typeof value === "string" && isJsonValue(value) ? "json" : "string";
 }
@@ -128,6 +187,7 @@ function isJsonValue(value) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  DatapointApi
+  DatapointApi,
+  parseAllowedPatterns
 });
 //# sourceMappingURL=datapoint-api.js.map

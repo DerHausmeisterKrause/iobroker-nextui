@@ -1,65 +1,132 @@
 import { expect } from 'chai';
-import { DatapointApi } from './datapoint-api';
+import { DatapointApi, parseAllowedPatterns } from './datapoint-api';
 
 describe('DatapointApi', () => {
-	it('filters, paginates and caches state-object queries', async () => {
+	it('does not query or expose anything without explicit allowed patterns', async () => {
 		let objectRequests = 0;
-		let stateRequests = 0;
-		const api = new DatapointApi({
-			getForeignObjectsAsync: () => {
-				objectRequests++;
-				return Promise.resolve(objects());
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => {
+					objectRequests++;
+					return Promise.resolve(objects());
+				},
+				getForeignStatesAsync: () => Promise.resolve(states()),
 			},
-			getForeignStatesAsync: () => {
-				stateRequests++;
-				return Promise.resolve(states());
-			},
-		});
-
-		const result = await api.list({ search: 'temperature', types: ['number'], offset: 0, limit: 1 });
-		expect(result).to.deep.include({ total: 2, offset: 0, limit: 1 });
-		expect(result.items[0]).to.deep.include({ id: 'test.0.targetTemperature', type: 'number', writable: false });
-		const nextPage = await api.list({ search: 'temperature', types: ['number'], offset: 1, limit: 1 });
-		expect(nextPage.items[0]).to.deep.include({ id: 'test.0.temperature', unit: '°C' });
-		expect(objectRequests).to.equal(1);
-		expect(stateRequests).to.equal(1);
+			[],
+		);
+		expect(await api.list()).to.deep.include({ total: 0, items: [] });
+		expect(objectRequests).to.equal(0);
 	});
 
-	it('returns boolean, strings and JSON-encoded strings with safe metadata only', async () => {
-		const api = new DatapointApi({
-			getForeignObjectsAsync: () => Promise.resolve(objects()),
-			getForeignStatesAsync: () => Promise.resolve(states()),
-		});
+	it('excludes non-readable and non-allowlisted datapoints before reading their values', async () => {
+		const requestedStates: string[][] = [];
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => Promise.resolve(objects()),
+				getForeignStatesAsync: ids => {
+					requestedStates.push(ids);
+					return Promise.resolve(states());
+				},
+			},
+			['safe.0.*'],
+		);
+
 		const result = await api.list({ limit: 10 });
-		expect(result.items.map(item => item.type)).to.have.members(['boolean', 'number', 'number', 'string', 'json']);
-		expect(result.items.find(item => item.id === 'test.0.settings')).to.deep.include({
-			type: 'json',
-			name: 'Settings',
-			ack: true,
-			readable: true,
-			writable: true,
-		});
+		expect(result.items.map(item => item.id)).to.deep.equal(['safe.0.label', 'safe.0.temperature']);
+		expect(requestedStates).to.deep.equal([['safe.0.label', 'safe.0.temperature']]);
+	});
+
+	it('fetches only the requested page, caches it and coalesces parallel requests', async () => {
+		let stateRequests = 0;
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => Promise.resolve(objects()),
+				getForeignStatesAsync: ids => {
+					stateRequests++;
+					return Promise.resolve(pickStates(ids));
+				},
+			},
+			['safe.0.*'],
+		);
+
+		const [first, second] = await Promise.all([api.list({ limit: 1 }), api.list({ limit: 1 })]);
+		expect(first.items[0].id).to.equal('safe.0.label');
+		expect(second.items[0].id).to.equal('safe.0.label');
+		expect(stateRequests).to.equal(1);
+		await api.list({ offset: 1, limit: 1 });
+		expect(stateRequests).to.equal(2);
+		await api.list({ offset: 1, limit: 1 });
+		expect(stateRequests).to.equal(2);
+	});
+
+	it('propagates state read errors and allows a later request to retry', async () => {
+		let fail = true;
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => Promise.resolve(objects()),
+				getForeignStatesAsync: ids => {
+					if (fail) {
+						fail = false;
+						return Promise.reject(new Error('state database unavailable'));
+					}
+					return Promise.resolve(pickStates(ids));
+				},
+			},
+			['safe.0.*'],
+		);
+		try {
+			await api.list({ limit: 1 });
+			throw new Error('The first state request unexpectedly succeeded');
+		} catch (error) {
+			expect((error as Error).message).to.equal('state database unavailable');
+		}
+		expect((await api.list({ limit: 1 })).items).to.have.length(1);
+	});
+
+	it('reloads object metadata when invalidated for future object changes', async () => {
+		let objectRequests = 0;
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => {
+					objectRequests++;
+					return Promise.resolve(objects());
+				},
+				getForeignStatesAsync: ids => Promise.resolve(pickStates(ids)),
+			},
+			['safe.0.*'],
+		);
+		await api.list();
+		api.invalidateObjects();
+		await api.list();
+		expect(objectRequests).to.equal(2);
+	});
+
+	it('parses comma and line separated allowlist entries', () => {
+		expect(parseAllowedPatterns('safe.0.*,\nsafe.1.*\n safe.0.* ')).to.deep.equal(['safe.0.*', 'safe.1.*']);
 	});
 });
 
 function objects(): Record<string, ioBroker.StateObject> {
 	return {
-		'test.0.temperature': stateObject('number', 'Temperature', { unit: '°C' }),
-		'test.0.targetTemperature': stateObject('number', 'Target temperature'),
-		'test.0.enabled': stateObject('boolean', 'Enabled'),
-		'test.0.label': stateObject('string', 'Label'),
-		'test.0.settings': stateObject('string', 'Settings', { write: true }),
+		'safe.0.temperature': stateObject('number', 'Temperature'),
+		'safe.0.label': stateObject('string', 'Label'),
+		'safe.0.private': stateObject('string', 'Private', { read: false }),
+		'other.0.secret': stateObject('string', 'Secret'),
 	};
 }
 
 function states(): Record<string, ioBroker.State> {
 	return {
-		'test.0.temperature': state(21.5, 123, true),
-		'test.0.targetTemperature': state(22, 124, false),
-		'test.0.enabled': state(true, 125, true),
-		'test.0.label': state('Kitchen', 126, true),
-		'test.0.settings': state('{"mode":"eco"}', 127, true),
+		'safe.0.temperature': state(21.5),
+		'safe.0.label': state('Kitchen'),
+		'safe.0.private': state('not-for-the-api'),
+		'other.0.secret': state('also-not-for-the-api'),
 	};
+}
+
+function pickStates(ids: string[]): Record<string, ioBroker.State> {
+	const all = states();
+	return Object.fromEntries(ids.flatMap(id => (all[id] ? [[id, all[id]]] : [])));
 }
 
 function stateObject(
@@ -75,6 +142,6 @@ function stateObject(
 	};
 }
 
-function state(val: boolean | number | string, ts: number, ack: boolean): ioBroker.State {
-	return { val, ts, ack, lc: ts, from: 'system.adapter.test.0' };
+function state(val: boolean | number | string): ioBroker.State {
+	return { val, ts: 123, ack: true, lc: 123, from: 'system.adapter.test.0' };
 }
