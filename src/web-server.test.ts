@@ -47,9 +47,9 @@ describe('NextuiWebServer', () => {
 	it('serializes a start and stop requested at the same time', async () => {
 		const server = createServer();
 		const startPromise = server.start();
+		const portPromise = startPromise.then(() => server.getStatus().port);
 		const stopPromise = server.stop();
-		await startPromise;
-		const port = server.getStatus().port;
+		const port = await portPromise;
 		await stopPromise;
 		expect(server.getStatus().running).to.equal(false);
 		await expectConnectionError(port);
