@@ -44,6 +44,7 @@
     "typescript": "~5.9.3"
   },
   "main": "build/main.js",
+	"workspaces": ["apps/*"],
   "files": [
     "admin{,/!(src)/**}/!(tsconfig|tsconfig.*|.eslintrc).{json,json5}",
     "admin{,/!(src)/**}/*.{html,css,png,svg,jpg,js}",
@@ -54,7 +55,7 @@
   ],
   "scripts": {
     "prebuild": "rimraf build",
-    "build": "build-adapter ts",
+		"build": "npm run frontend:build && build-adapter ts",
     "watch": "build-adapter ts --watch",
     "prebuild:ts": "rimraf build",
     "build:ts": "build-adapter ts",
@@ -62,9 +63,14 @@
     "test:ts": "mocha --config test/mocharc.custom.json src/**/*.test.ts",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
-    "test": "npm run test:ts && npm run test:package",
-    "check": "tsc --noEmit",
-    "lint": "eslint -c eslint.config.mjs .",
+		"test": "npm run test:ts && npm run test:package && npm run frontend:test",
+		"check": "tsc --noEmit && npm run frontend:check",
+		"lint": "eslint -c eslint.config.mjs . && npm run frontend:lint",
+		"frontend:dev": "npm run dev --workspace=@iobroker-nextui/frontend",
+		"frontend:build": "npm run build --workspace=@iobroker-nextui/frontend",
+		"frontend:check": "npm run check --workspace=@iobroker-nextui/frontend",
+		"frontend:lint": "npm run lint --workspace=@iobroker-nextui/frontend",
+		"frontend:test": "npm run test --workspace=@iobroker-nextui/frontend",
     "translate": "translate-adapter",
     "release": "release-script",
     "dev-server": "dev-server"

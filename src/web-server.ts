@@ -1,10 +1,13 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { extname, resolve, sep } from 'node:path';
 
 export interface WebServerOptions {
 	port: number;
 	bindAddress: string;
 	instance: string;
 	version: string;
+	frontendDirectory?: string;
 	onError?: (error: Error) => void;
 }
 
@@ -66,7 +69,14 @@ export class NextuiWebServer {
 
 	private startServer(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			const server = createServer((request, response) => this.handleRequest(request, response));
+			const server = createServer((request, response) => {
+				void this.handleRequest(request, response).catch(error => {
+					this.options.onError?.(error instanceof Error ? error : new Error(String(error)));
+					if (!response.headersSent) {
+						this.sendJson(response, 500, { error: 'Internal server error' });
+					}
+				});
+			});
 			this.server = server;
 
 			const onRuntimeError = (error: NodeJS.ErrnoException): void => {
@@ -97,7 +107,7 @@ export class NextuiWebServer {
 		});
 	}
 
-	private handleRequest(request: IncomingMessage, response: ServerResponse): void {
+	private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
 		const requestUrl = new URL(request.url ?? '/', 'http://localhost');
 		if (request.method !== 'GET' && request.method !== 'HEAD') {
 			this.sendJson(response, 405, { error: 'Method not allowed' });
@@ -108,6 +118,13 @@ export class NextuiWebServer {
 			this.sendJson(response, 200, { status: 'ok', server: this.getStatus() });
 			return;
 		}
+		if (requestUrl.pathname === '/api' || requestUrl.pathname.startsWith('/api/')) {
+			this.sendJson(response, 404, { error: 'Not found' });
+			return;
+		}
+		if (await this.serveFrontendFile(requestUrl.pathname, request, response)) {
+			return;
+		}
 
 		if (requestUrl.pathname === '/') {
 			this.sendHtml(response, 200, this.renderPage());
@@ -115,6 +132,55 @@ export class NextuiWebServer {
 		}
 
 		this.sendJson(response, 404, { error: 'Not found' });
+	}
+
+	private async serveFrontendFile(
+		pathname: string,
+		request: IncomingMessage,
+		response: ServerResponse,
+	): Promise<boolean> {
+		const frontendDirectory = resolve(this.options.frontendDirectory ?? resolve(__dirname, '../www/frontend'));
+		const decodedPath = decodeURIComponent(pathname);
+		if (decodedPath.includes('\0')) {
+			return false;
+		}
+
+		const relativePath = decodedPath.replace(/^\/+/, '');
+		const requestedFile = this.safeFrontendPath(frontendDirectory, relativePath || 'index.html');
+		if (requestedFile && (await this.sendFile(requestedFile, request, response))) {
+			return true;
+		}
+
+		if (pathname === '/' || extname(relativePath) === '') {
+			const indexFile = this.safeFrontendPath(frontendDirectory, 'index.html');
+			if (indexFile) {
+				return this.sendFile(indexFile, request, response);
+			}
+		}
+		return false;
+	}
+
+	private safeFrontendPath(frontendDirectory: string, relativePath: string): string | undefined {
+		const filePath = resolve(frontendDirectory, relativePath);
+		return filePath.startsWith(`${frontendDirectory}${sep}`) ? filePath : undefined;
+	}
+
+	private async sendFile(filePath: string, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+		try {
+			const content = await readFile(filePath);
+			response.writeHead(200, {
+				'Cache-Control': 'no-store',
+				'Content-Type': getContentType(filePath),
+				'X-Content-Type-Options': 'nosniff',
+			});
+			response.end(request.method === 'HEAD' ? undefined : content);
+			return true;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+				return false;
+			}
+			throw error;
+		}
 	}
 
 	private sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
@@ -201,4 +267,17 @@ function escapeHtml(value: string): string {
 		'"': '&quot;',
 	};
 	return value.replace(/[&<>'"]/g, character => entities[character]);
+}
+
+function getContentType(filePath: string): string {
+	const contentTypes: Record<string, string> = {
+		'.css': 'text/css; charset=utf-8',
+		'.html': 'text/html; charset=utf-8',
+		'.ico': 'image/x-icon',
+		'.js': 'text/javascript; charset=utf-8',
+		'.json': 'application/json; charset=utf-8',
+		'.svg': 'image/svg+xml',
+		'.woff2': 'font/woff2',
+	};
+	return contentTypes[extname(filePath)] ?? 'application/octet-stream';
 }

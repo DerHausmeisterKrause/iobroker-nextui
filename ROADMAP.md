@@ -3,7 +3,7 @@
 ## Phase 1 - Foundation
 - [x] Repository setup
 - [x] ioBroker adapter scaffold
-- [ ] Frontend setup
+- [x] Frontend workspace, application shell, navigation, and theme foundation
 - [x] Development environment
 - [x] Basic server foundation and health endpoint
 - [x] Webserver lifecycle and conflict tests
