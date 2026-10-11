@@ -77,7 +77,8 @@
 	},
 	"native": {
 		"port": 8090,
-		"bindAddress": "127.0.0.1"
+		"bindAddress": "127.0.0.1",
+		"datapointApiDevelopmentMode": false
 	},
 	"objects": [],
 	"instanceObjects": []

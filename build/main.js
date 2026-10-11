@@ -22,11 +22,13 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_datapoint_api = require("./datapoint-api");
 var import_web_server = require("./web-server");
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = "127.0.0.1";
 class Nextui extends utils.Adapter {
   webServer;
+  datapointApi;
   constructor(options = {}) {
     super({ ...options, name: "nextui" });
     this.on("ready", this.onReady.bind(this));
@@ -37,11 +39,20 @@ class Nextui extends utils.Adapter {
     const port = this.getConfiguredPort();
     const bindAddress = ((_a = this.config.bindAddress) == null ? void 0 : _a.trim()) || DEFAULT_BIND_ADDRESS;
     const instance = (_b = this.namespace) != null ? _b : `nextui.${this.instance}`;
+    const datapointApiEnabled = this.config.datapointApiDevelopmentMode === true && isLoopbackAddress(bindAddress);
+    if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
+      this.log.warn(
+        "Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert, weil der HTTP-Server nicht an Loopback gebunden ist."
+      );
+    }
+    this.datapointApi = datapointApiEnabled ? new import_datapoint_api.DatapointApi(this) : void 0;
     this.webServer = new import_web_server.NextuiWebServer({
       port,
       bindAddress,
       instance,
       version: (_c = this.version) != null ? _c : "0.0.1",
+      datapointApi: this.datapointApi,
+      datapointApiEnabled,
       onError: (error) => this.log.error(`HTTP-Serverfehler: ${error.message}`)
     });
     try {
@@ -65,6 +76,7 @@ class Nextui extends utils.Adapter {
   onUnload(callback) {
     const webServer = this.webServer;
     this.webServer = void 0;
+    this.datapointApi = void 0;
     if (!webServer) {
       callback();
       return;
@@ -74,6 +86,9 @@ class Nextui extends utils.Adapter {
       callback();
     });
   }
+}
+function isLoopbackAddress(address) {
+  return address === "127.0.0.1" || address === "::1" || address.toLocaleLowerCase() === "localhost";
 }
 if (require.main !== module) {
   module.exports = (options) => new Nextui(options);

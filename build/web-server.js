@@ -128,6 +128,10 @@ class NextuiWebServer {
       this.sendJson(response, 200, { status: "ok", server: this.getStatus() });
       return;
     }
+    if (requestUrl.pathname === "/api/datapoints") {
+      await this.handleDatapointRequest(requestUrl, response);
+      return;
+    }
     if (requestUrl.pathname === "/api" || requestUrl.pathname.startsWith("/api/")) {
       this.sendJson(response, 404, { error: "Not found" });
       return;
@@ -140,6 +144,28 @@ class NextuiWebServer {
       return;
     }
     this.sendJson(response, 404, { error: "Not found" });
+  }
+  async handleDatapointRequest(requestUrl, response) {
+    var _a, _b;
+    if (!this.options.datapointApiEnabled || !this.options.datapointApi) {
+      this.sendJson(response, 403, { error: "Datapoint API is disabled" });
+      return;
+    }
+    const offset = parsePaginationParameter(requestUrl.searchParams.get("offset"), "offset");
+    const limit = parsePaginationParameter(requestUrl.searchParams.get("limit"), "limit");
+    const types = (_a = requestUrl.searchParams.get("types")) == null ? void 0 : _a.split(",").filter(
+      (type) => ["boolean", "number", "string", "json"].includes(type)
+    );
+    this.sendJson(
+      response,
+      200,
+      await this.options.datapointApi.list({
+        search: (_b = requestUrl.searchParams.get("search")) != null ? _b : void 0,
+        types,
+        offset,
+        limit
+      })
+    );
   }
   async serveFrontendFile(pathname, request, response) {
     var _a;
@@ -309,6 +335,16 @@ function getContentType(filePath) {
     ".woff2": "font/woff2"
   };
   return (_a = contentTypes[(0, import_node_path.extname)(filePath)]) != null ? _a : "application/octet-stream";
+}
+function parsePaginationParameter(value, name) {
+  if (value === null || value === "") {
+    return void 0;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new InvalidRequestError(`Invalid ${name} parameter.`);
+  }
+  return parsed;
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

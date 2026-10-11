@@ -10,8 +10,8 @@
 - [ ] Testing and CI expansion
 
 ## Phase 2 - Datapoints
-- ioBroker connection
-- Datapoint browser
+- [x] ioBroker connection (read-only local development API)
+- [x] Datapoint browser (read-only local development mode)
 - Real-time subscriptions
 - Read and write operations
 - Binding engine

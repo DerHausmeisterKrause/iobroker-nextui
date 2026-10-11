@@ -24,6 +24,59 @@ describe('NextuiWebServer', () => {
 		await expectConnectionError(port);
 	});
 
+	it('keeps the datapoint API disabled unless development mode is explicitly enabled', async () => {
+		const disabled = createServer();
+		await disabled.start();
+		try {
+			const response = await request(disabled.getStatus().port, '/api/datapoints');
+			expect(response.statusCode).to.equal(403);
+			expect(response.body).to.equal('{"error":"Datapoint API is disabled"}');
+		} finally {
+			await disabled.stop();
+		}
+	});
+
+	it('serves paginated datapoints only through the dedicated API route', async () => {
+		const server = new NextuiWebServer({
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
+			datapointApiEnabled: true,
+			datapointApi: {
+				list: query =>
+					Promise.resolve({
+						items: [
+							{
+								id: 'test.0.value',
+								name: 'Value',
+								type: 'number',
+								value: 1,
+								readable: true,
+								writable: false,
+							},
+						],
+						total: 1,
+						offset: query.offset ?? 0,
+						limit: query.limit ?? 50,
+					}),
+			},
+		});
+		await server.start();
+		try {
+			const response = await request(
+				server.getStatus().port,
+				'/api/datapoints?search=value&types=number&limit=10',
+			);
+			expect(response.statusCode).to.equal(200);
+			expect(JSON.parse(response.body)).to.deep.include({ total: 1, limit: 10 });
+			const invalid = await request(server.getStatus().port, '/api/datapoints?offset=-1');
+			expect(invalid.statusCode).to.equal(400);
+		} finally {
+			await server.stop();
+		}
+	});
+
 	it('serves built frontend files and falls back to the SPA entry point', async () => {
 		const frontendDirectory = await mkdtemp(join(tmpdir(), 'nextui-frontend-'));
 		const outsideDirectory = await mkdtemp(join(tmpdir(), 'nextui-outside-'));
