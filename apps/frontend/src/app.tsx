@@ -2,6 +2,7 @@ import { Activity, Blocks, LayoutDashboard, Settings2 } from 'lucide-react';
 import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/app-shell';
 import { Card } from './components/ui/card';
+import { DatapointBrowser } from './features/datapoints/datapoint-browser';
 
 const pages = {
 	raeume: {
@@ -50,6 +51,10 @@ export function App(): JSX.Element {
 				<Route
 					path="/einstellungen"
 					element={<Placeholder {...pages.einstellungen} />}
+				/>
+				<Route
+					path="/datenpunkte"
+					element={<DatapointBrowser />}
 				/>
 			</Routes>
 		</AppShell>

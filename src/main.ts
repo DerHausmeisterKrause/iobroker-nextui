@@ -3,6 +3,7 @@
  */
 
 import * as utils from '@iobroker/adapter-core';
+import { DatapointApi, parseAllowedPatterns, type DatapointAdapterApi } from './datapoint-api';
 import { NextuiWebServer } from './web-server';
 
 const DEFAULT_PORT = 8090;
@@ -10,6 +11,7 @@ const DEFAULT_BIND_ADDRESS = '127.0.0.1';
 
 class Nextui extends utils.Adapter {
 	private webServer: NextuiWebServer | undefined;
+	private datapointApi: DatapointApi | undefined;
 
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({ ...options, name: 'nextui' });
@@ -21,11 +23,26 @@ class Nextui extends utils.Adapter {
 		const port = this.getConfiguredPort();
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
+		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
+		const datapointApiEnabled =
+			this.config.datapointApiDevelopmentMode === true &&
+			isLoopbackAddress(bindAddress) &&
+			allowedPatterns.length > 0;
+		if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
+			this.log.warn(
+				'Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert: Loopback-Bindung und mindestens ein erlaubtes ID-Muster sind erforderlich.',
+			);
+		}
+		this.datapointApi = datapointApiEnabled
+			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
+			: undefined;
 		this.webServer = new NextuiWebServer({
 			port,
 			bindAddress,
 			instance,
 			version: this.version ?? '0.0.1',
+			datapointApi: this.datapointApi,
+			datapointApiEnabled,
 			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
 		});
 
@@ -52,6 +69,7 @@ class Nextui extends utils.Adapter {
 	private onUnload(callback: () => void): void {
 		const webServer = this.webServer;
 		this.webServer = undefined;
+		this.datapointApi = undefined;
 		if (!webServer) {
 			callback();
 			return;
@@ -64,6 +82,10 @@ class Nextui extends utils.Adapter {
 				callback();
 			});
 	}
+}
+
+function isLoopbackAddress(address: string): boolean {
+	return address === '127.0.0.1' || address === '::1' || address.toLocaleLowerCase() === 'localhost';
 }
 if (require.main !== module) {
 	module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new Nextui(options);

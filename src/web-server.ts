@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
+import type { DatapointListResponse, DatapointQuery } from './datapoint-api';
 
 export interface WebServerOptions {
 	port: number;
@@ -8,6 +9,10 @@ export interface WebServerOptions {
 	instance: string;
 	version: string;
 	frontendDirectory?: string;
+	datapointApi?: {
+		list(query: DatapointQuery): Promise<DatapointListResponse>;
+	};
+	datapointApiEnabled?: boolean;
 	onError?: (error: Error) => void;
 }
 
@@ -129,6 +134,10 @@ export class NextuiWebServer {
 			this.sendJson(response, 200, { status: 'ok', server: this.getStatus() });
 			return;
 		}
+		if (requestUrl.pathname === '/api/datapoints') {
+			await this.handleDatapointRequest(requestUrl, response);
+			return;
+		}
 		if (requestUrl.pathname === '/api' || requestUrl.pathname.startsWith('/api/')) {
 			this.sendJson(response, 404, { error: 'Not found' });
 			return;
@@ -143,6 +152,31 @@ export class NextuiWebServer {
 		}
 
 		this.sendJson(response, 404, { error: 'Not found' });
+	}
+
+	private async handleDatapointRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
+		if (!this.options.datapointApiEnabled || !this.options.datapointApi) {
+			this.sendJson(response, 403, { error: 'Datapoint API is disabled' });
+			return;
+		}
+		const offset = parsePaginationParameter(requestUrl.searchParams.get('offset'), 'offset');
+		const limit = parsePaginationParameter(requestUrl.searchParams.get('limit'), 'limit');
+		const types = requestUrl.searchParams
+			.get('types')
+			?.split(',')
+			.filter((type): type is 'boolean' | 'number' | 'string' | 'json' =>
+				['boolean', 'number', 'string', 'json'].includes(type),
+			);
+		this.sendJson(
+			response,
+			200,
+			await this.options.datapointApi.list({
+				search: requestUrl.searchParams.get('search') ?? undefined,
+				types,
+				offset,
+				limit,
+			}),
+		);
 	}
 
 	private async serveFrontendFile(
@@ -330,4 +364,15 @@ function getContentType(filePath: string): string {
 		'.woff2': 'font/woff2',
 	};
 	return contentTypes[extname(filePath)] ?? 'application/octet-stream';
+}
+
+function parsePaginationParameter(value: string | null, name: string): number | undefined {
+	if (value === null || value === '') {
+		return undefined;
+	}
+	const parsed = Number(value);
+	if (!Number.isInteger(parsed) || parsed < 0) {
+		throw new InvalidRequestError(`Invalid ${name} parameter.`);
+	}
+	return parsed;
 }

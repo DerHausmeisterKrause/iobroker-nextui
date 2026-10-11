@@ -4,8 +4,10 @@
 declare global {
 	namespace ioBroker {
 		interface AdapterConfig {
-		port: number;
-		bindAddress: string;
+			port: number;
+			bindAddress: string;
+			datapointApiDevelopmentMode: boolean;
+			datapointApiAllowedPatterns: string;
 		}
 	}
 }

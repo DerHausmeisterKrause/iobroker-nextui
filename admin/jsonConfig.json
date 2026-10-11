@@ -26,6 +26,29 @@
 			"md": 6,
 			"lg": 4,
 			"xl": 4
+		},
+		"datapointApiDevelopmentMode": {
+			"type": "checkbox",
+			"label": "Lokalen Datenpunkt-Entwicklungsmodus aktivieren",
+			"default": false,
+			"help": "Aktiviert die schreibgeschützte Datenpunkt-API ausschließlich bei Loopback-Bindung. Nicht für LAN-Zugriff geeignet.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 8,
+			"xl": 8
+		},
+		"datapointApiAllowedPatterns": {
+			"type": "text",
+			"label": "Erlaubte Datenpunkt-ID-Muster",
+			"help": "Erforderlich im Entwicklungsmodus. Kommagetrennte Muster, z. B. hm-rpc.0.* oder zigbee.0.*. Ohne Muster bleibt die API deaktiviert.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 8,
+			"xl": 8
 		}
 	}
 }

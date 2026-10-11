@@ -67,6 +67,29 @@ serializable contracts (for example in `packages/contracts`). Authentication,
 authorization, sessions, and any state-changing API must be added before a
 non-loopback deployment is considered safe.
 
+### Datapoint development API
+
+`GET /api/datapoints` is a separate, read-only development endpoint. It is
+disabled by default and is only enabled when the instance's **local datapoint
+development mode** is explicitly selected, the HTTP server is bound to a
+loopback address, and at least one explicit datapoint ID pattern is allowlisted.
+This is enforced by the adapter, not by the frontend. `common.read === false`
+objects are excluded before any state value is read.
+
+The endpoint returns a paginated, cached index of allowlisted `state` objects
+and their current page values. It exposes only the ID, display name, supported
+value type, unit, role, read/write flags, state timestamp, ack flag and value.
+Adapter configuration, credentials and arbitrary objects are never serialized.
+The object index is loaded only for configured patterns; state reads are limited
+to the requested page and retained in a bounded short-lived cache. Object
+invalidation and state-cache updates are available as the future subscription
+boundary. No HTTP write endpoint exists.
+
+Loopback is a network-boundary mitigation, not user authentication. A local
+user, a compromised local process, or a reverse proxy/tunnel can still forward
+requests. Do not expose this development mode through a proxy or use it for
+production data until server-side authentication and authorization exist.
+
 ## Frontend workspace and delivery
 
 `apps/frontend` is a separate React/Vite workspace. It contains the visual

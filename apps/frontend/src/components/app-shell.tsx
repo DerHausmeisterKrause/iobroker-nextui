@@ -1,4 +1,4 @@
-import { Cpu, DoorOpen, House, Menu, Moon, PanelsTopLeft, Settings, Sun, X, Zap } from 'lucide-react';
+import { Cpu, Database, DoorOpen, House, Menu, Moon, PanelsTopLeft, Settings, Sun, X, Zap } from 'lucide-react';
 import { type PropsWithChildren, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from './theme-provider';
@@ -10,6 +10,7 @@ const navigation = [
 	{ label: 'Räume', to: '/raeume', icon: DoorOpen },
 	{ label: 'Energie', to: '/energie', icon: Zap },
 	{ label: 'Geräte', to: '/geraete', icon: Cpu },
+	{ label: 'Datenpunkte', to: '/datenpunkte', icon: Database },
 	{ label: 'Einstellungen', to: '/einstellungen', icon: Settings },
 ];
 
@@ -18,6 +19,7 @@ const pageNames: Record<string, string> = {
 	'/raeume': 'Räume',
 	'/energie': 'Energie',
 	'/geraete': 'Geräte',
+	'/datenpunkte': 'Datenpunkte',
 	'/einstellungen': 'Einstellungen',
 };
 
