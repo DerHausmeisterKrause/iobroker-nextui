@@ -30,7 +30,6 @@ class Nextui extends utils.Adapter {
   constructor(options = {}) {
     super({ ...options, name: "nextui" });
     this.on("ready", this.onReady.bind(this));
-    this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }
   async onReady() {
@@ -38,7 +37,13 @@ class Nextui extends utils.Adapter {
     const port = this.getConfiguredPort();
     const bindAddress = ((_a = this.config.bindAddress) == null ? void 0 : _a.trim()) || DEFAULT_BIND_ADDRESS;
     const instance = (_b = this.namespace) != null ? _b : `nextui.${this.instance}`;
-    this.webServer = new import_web_server.NextuiWebServer({ port, bindAddress, instance, version: (_c = this.version) != null ? _c : "0.0.1" });
+    this.webServer = new import_web_server.NextuiWebServer({
+      port,
+      bindAddress,
+      instance,
+      version: (_c = this.version) != null ? _c : "0.0.1",
+      onError: (error) => this.log.error(`HTTP-Serverfehler: ${error.message}`)
+    });
     try {
       await this.webServer.start();
       this.log.info(`HTTP-Server f\xFCr ${instance} l\xE4uft auf ${bindAddress}:${this.webServer.getStatus().port}`);
@@ -51,7 +56,9 @@ class Nextui extends utils.Adapter {
   }
   getConfiguredPort() {
     const port = Number(this.config.port);
-    if (Number.isInteger(port) && port >= 1 && port <= 65535) return port;
+    if (Number.isInteger(port) && port >= 1 && port <= 65535) {
+      return port;
+    }
     this.log.warn(`Ung\xFCltiger HTTP-Port "${this.config.port}"; verwende ${DEFAULT_PORT}.`);
     return DEFAULT_PORT;
   }
@@ -66,10 +73,6 @@ class Nextui extends utils.Adapter {
       this.log.error(`Fehler beim Beenden des HTTP-Servers: ${error.message}`);
       callback();
     });
-  }
-  onStateChange(id, state) {
-    if (state) this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-    else this.log.info(`state ${id} deleted`);
   }
 }
 if (require.main !== module) {

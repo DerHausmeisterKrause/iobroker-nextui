@@ -14,7 +14,6 @@ class Nextui extends utils.Adapter {
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({ ...options, name: 'nextui' });
 		this.on('ready', this.onReady.bind(this));
-		this.on('stateChange', this.onStateChange.bind(this));
 		this.on('unload', this.onUnload.bind(this));
 	}
 
@@ -22,7 +21,13 @@ class Nextui extends utils.Adapter {
 		const port = this.getConfiguredPort();
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
-		this.webServer = new NextuiWebServer({ port, bindAddress, instance, version: this.version ?? '0.0.1' });
+		this.webServer = new NextuiWebServer({
+			port,
+			bindAddress,
+			instance,
+			version: this.version ?? '0.0.1',
+			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
+		});
 
 		try {
 			await this.webServer.start();
@@ -59,16 +64,7 @@ class Nextui extends utils.Adapter {
 				callback();
 			});
 	}
-
-	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
-		if (state) {
-			this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-		} else {
-			this.log.info(`state ${id} deleted`);
-		}
-	}
 }
-
 if (require.main !== module) {
 	module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new Nextui(options);
 } else {

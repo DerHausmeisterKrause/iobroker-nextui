@@ -1,131 +1,100 @@
-/* eslint-disable jsdoc/no-blank-blocks */
-
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
-/**
- *
- */
 export interface WebServerOptions {
-	/**
-	 *
-	 */
 	port: number;
-	/**
-	 *
-	 */
 	bindAddress: string;
-	/**
-	 *
-	 */
 	instance: string;
-	/**
-	 *
-	 */
 	version: string;
+	onError?: (error: Error) => void;
 }
 
-/**
- *
- */
 export interface WebServerStatus {
-	/**
-	 *
-	 */
 	running: boolean;
-	/**
-	 *
-	 */
 	port: number;
-	/**
-	 *
-	 */
 	bindAddress: string;
-	/**
-	 *
-	 */
 	instance: string;
-	/**
-	 *
-	 */
 	version: string;
 }
 
-/**
- *
- */
+type LifecycleOperation = () => Promise<void>;
+
 export class NextuiWebServer {
 	private server: Server | undefined;
 	private listeningPort: number | undefined;
+	private lifecycle: Promise<void> = Promise.resolve();
 
-	/**
-	 *
-	 */
 	public constructor(private readonly options: WebServerOptions) {}
 
-	/**
-	 *
-	 */
 	public start(): Promise<void> {
-		if (this.server) {
-			return Promise.resolve();
-		}
-
-		return new Promise((resolve, reject) => {
-			const server = createServer((request, response) => this.handleRequest(request, response));
-			let settled = false;
-
-			const onError = (error: NodeJS.ErrnoException): void => {
-				if (settled) {
-					return;
-				}
-				settled = true;
-				this.server = undefined;
-				reject(this.describeStartError(error));
-			};
-
-			server.once('error', onError);
-			server.listen(this.options.port, this.options.bindAddress, () => {
-				if (settled) {
-					return;
-				}
-				settled = true;
-				server.removeListener('error', onError);
-				this.server = server;
-				const address = server.address();
-				this.listeningPort = typeof address === 'object' && address ? address.port : this.options.port;
-				resolve();
-			});
+		return this.enqueue(async () => {
+			if (this.server?.listening) {
+				return;
+			}
+			await this.startServer();
 		});
 	}
 
-	/**
-	 *
-	 */
 	public stop(): Promise<void> {
-		const server = this.server;
-		if (!server) {
-			return Promise.resolve();
-		}
+		return this.enqueue(async () => {
+			const server = this.server;
+			if (!server) {
+				return;
+			}
 
-		this.server = undefined;
-		this.listeningPort = undefined;
-		server.closeAllConnections?.();
-		return new Promise(resolve => {
-			server.close(() => resolve());
+			this.server = undefined;
+			this.listeningPort = undefined;
+			server.closeAllConnections?.();
+			await new Promise<void>(resolve => server.close(() => resolve()));
 		});
 	}
 
-	/**
-	 *
-	 */
 	public getStatus(): WebServerStatus {
 		return {
-			running: this.server !== undefined,
+			running: this.server?.listening === true,
 			port: this.listeningPort ?? this.options.port,
 			bindAddress: this.options.bindAddress,
 			instance: this.options.instance,
 			version: this.options.version,
 		};
+	}
+
+	private enqueue(operation: LifecycleOperation): Promise<void> {
+		const next = this.lifecycle.then(operation, operation);
+		this.lifecycle = next.catch(() => undefined);
+		return next;
+	}
+
+	private startServer(): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const server = createServer((request, response) => this.handleRequest(request, response));
+			this.server = server;
+
+			const onRuntimeError = (error: NodeJS.ErrnoException): void => {
+				const describedError = this.describeError(error);
+				this.options.onError?.(describedError);
+				if (!server.listening && this.server === server) {
+					this.server = undefined;
+					this.listeningPort = undefined;
+				}
+			};
+			const onStartError = (error: NodeJS.ErrnoException): void => {
+				server.removeListener('error', onRuntimeError);
+				if (this.server === server) {
+					this.server = undefined;
+					this.listeningPort = undefined;
+				}
+				reject(this.describeError(error));
+			};
+
+			server.once('error', onStartError);
+			server.on('error', onRuntimeError);
+			server.listen(this.options.port, this.options.bindAddress, () => {
+				server.removeListener('error', onStartError);
+				const address = server.address();
+				this.listeningPort = typeof address === 'object' && address ? address.port : this.options.port;
+				resolve();
+			});
+		});
 	}
 
 	private handleRequest(request: IncomingMessage, response: ServerResponse): void {
@@ -136,10 +105,7 @@ export class NextuiWebServer {
 		}
 
 		if (requestUrl.pathname === '/api/health') {
-			this.sendJson(response, 200, {
-				status: 'ok',
-				server: this.getStatus(),
-			});
+			this.sendJson(response, 200, { status: 'ok', server: this.getStatus() });
 			return;
 		}
 
@@ -158,11 +124,7 @@ export class NextuiWebServer {
 			'Content-Type': 'application/json; charset=utf-8',
 			'X-Content-Type-Options': 'nosniff',
 		});
-		if (response.req?.method !== 'HEAD') {
-			response.end(content);
-		} else {
-			response.end();
-		}
+		response.end(response.req?.method === 'HEAD' ? undefined : content);
 	}
 
 	private sendHtml(response: ServerResponse, statusCode: number, content: string): void {
@@ -171,11 +133,7 @@ export class NextuiWebServer {
 			'Content-Type': 'text/html; charset=utf-8',
 			'X-Content-Type-Options': 'nosniff',
 		});
-		if (response.req?.method !== 'HEAD') {
-			response.end(content);
-		} else {
-			response.end();
-		}
+		response.end(response.req?.method === 'HEAD' ? undefined : content);
 	}
 
 	private renderPage(): string {
@@ -219,7 +177,7 @@ export class NextuiWebServer {
 </html>`;
 	}
 
-	private describeStartError(error: NodeJS.ErrnoException): Error {
+	private describeError(error: NodeJS.ErrnoException): Error {
 		if (error.code === 'EADDRINUSE') {
 			return new Error(`Port ${this.options.port} auf ${this.options.bindAddress} ist bereits belegt.`);
 		}
@@ -235,14 +193,12 @@ export class NextuiWebServer {
 }
 
 function escapeHtml(value: string): string {
-	return value.replace(/[&<>'"]/g, character => {
-		const entities: Record<string, string> = {
-			'&': '&amp;',
-			'<': '&lt;',
-			'>': '&gt;',
-			"'": '&#39;',
-			'"': '&quot;',
-		};
-		return entities[character];
-	});
+	const entities: Record<string, string> = {
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		"'": '&#39;',
+		'"': '&quot;',
+	};
+	return value.replace(/[&<>'"]/g, character => entities[character]);
 }

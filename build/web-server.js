@@ -28,51 +28,70 @@ class NextuiWebServer {
   }
   server;
   listeningPort;
+  lifecycle = Promise.resolve();
   start() {
-    if (this.server) {
-      return Promise.resolve();
-    }
+    return this.enqueue(async () => {
+      var _a;
+      if ((_a = this.server) == null ? void 0 : _a.listening) return;
+      await this.startServer();
+    });
+  }
+  stop() {
+    return this.enqueue(async () => {
+      var _a;
+      const server = this.server;
+      if (!server) return;
+      this.server = void 0;
+      this.listeningPort = void 0;
+      (_a = server.closeAllConnections) == null ? void 0 : _a.call(server);
+      await new Promise((resolve) => server.close(() => resolve()));
+    });
+  }
+  getStatus() {
+    var _a, _b;
+    return {
+      running: ((_a = this.server) == null ? void 0 : _a.listening) === true,
+      port: (_b = this.listeningPort) != null ? _b : this.options.port,
+      bindAddress: this.options.bindAddress,
+      instance: this.options.instance,
+      version: this.options.version
+    };
+  }
+  enqueue(operation) {
+    const next = this.lifecycle.then(operation, operation);
+    this.lifecycle = next.catch(() => void 0);
+    return next;
+  }
+  startServer() {
     return new Promise((resolve, reject) => {
       const server = (0, import_node_http.createServer)((request, response) => this.handleRequest(request, response));
-      let settled = false;
-      const onError = (error) => {
-        if (settled) return;
-        settled = true;
-        this.server = void 0;
-        reject(this.describeStartError(error));
+      this.server = server;
+      const onStartError = (error) => {
+        server.removeListener("error", onRuntimeError);
+        if (this.server === server) {
+          this.server = void 0;
+          this.listeningPort = void 0;
+        }
+        reject(this.describeError(error));
       };
-      server.once("error", onError);
+      const onRuntimeError = (error) => {
+        var _a, _b;
+        const describedError = this.describeError(error);
+        (_b = (_a = this.options).onError) == null ? void 0 : _b.call(_a, describedError);
+        if (!server.listening && this.server === server) {
+          this.server = void 0;
+          this.listeningPort = void 0;
+        }
+      };
+      server.once("error", onStartError);
+      server.on("error", onRuntimeError);
       server.listen(this.options.port, this.options.bindAddress, () => {
-        if (settled) return;
-        settled = true;
-        server.removeListener("error", onError);
-        this.server = server;
+        server.removeListener("error", onStartError);
         const address = server.address();
         this.listeningPort = typeof address === "object" && address ? address.port : this.options.port;
         resolve();
       });
     });
-  }
-  stop() {
-    var _a;
-    const server = this.server;
-    if (!server) return Promise.resolve();
-    this.server = void 0;
-    this.listeningPort = void 0;
-    (_a = server.closeAllConnections) == null ? void 0 : _a.call(server);
-    return new Promise((resolve) => {
-      server.close(() => resolve());
-    });
-  }
-  getStatus() {
-    var _a;
-    return {
-      running: this.server !== void 0,
-      port: (_a = this.listeningPort) != null ? _a : this.options.port,
-      bindAddress: this.options.bindAddress,
-      instance: this.options.instance,
-      version: this.options.version
-    };
   }
   handleRequest(request, response) {
     var _a;
@@ -82,10 +101,7 @@ class NextuiWebServer {
       return;
     }
     if (requestUrl.pathname === "/api/health") {
-      this.sendJson(response, 200, {
-        status: "ok",
-        server: this.getStatus()
-      });
+      this.sendJson(response, 200, { status: "ok", server: this.getStatus() });
       return;
     }
     if (requestUrl.pathname === "/") {
@@ -102,8 +118,7 @@ class NextuiWebServer {
       "Content-Type": "application/json; charset=utf-8",
       "X-Content-Type-Options": "nosniff"
     });
-    if (((_a = response.req) == null ? void 0 : _a.method) !== "HEAD") response.end(content);
-    else response.end();
+    response.end(((_a = response.req) == null ? void 0 : _a.method) === "HEAD" ? void 0 : content);
   }
   sendHtml(response, statusCode, content) {
     var _a;
@@ -112,8 +127,7 @@ class NextuiWebServer {
       "Content-Type": "text/html; charset=utf-8",
       "X-Content-Type-Options": "nosniff"
     });
-    if (((_a = response.req) == null ? void 0 : _a.method) !== "HEAD") response.end(content);
-    else response.end();
+    response.end(((_a = response.req) == null ? void 0 : _a.method) === "HEAD" ? void 0 : content);
   }
   renderPage() {
     const instance = escapeHtml(this.options.instance);
@@ -155,27 +169,27 @@ class NextuiWebServer {
 </body>
 </html>`;
   }
-  describeStartError(error) {
+  describeError(error) {
     if (error.code === "EADDRINUSE") {
       return new Error(`Port ${this.options.port} auf ${this.options.bindAddress} ist bereits belegt.`);
     }
     if (error.code === "EACCES") {
       return new Error(`Keine Berechtigung, den Port ${this.options.port} auf ${this.options.bindAddress} zu \xF6ffnen.`);
     }
-    return new Error(`HTTP-Server konnte auf ${this.options.bindAddress}:${this.options.port} nicht gestartet werden: ${error.message}`);
+    return new Error(
+      `HTTP-Server konnte auf ${this.options.bindAddress}:${this.options.port} nicht gestartet werden: ${error.message}`
+    );
   }
 }
 function escapeHtml(value) {
-  return value.replace(/[&<>'"]/g, (character) => {
-    const entities = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;"
-    };
-    return entities[character];
-  });
+  const entities = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;"
+  };
+  return value.replace(/[&<>'"]/g, (character) => entities[character]);
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
