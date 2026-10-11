@@ -1,0 +1,84 @@
+{
+	"common": {
+		"name": "nextui",
+		"version": "0.0.1",
+		"news": {
+			"0.0.1": {
+				"en": "initial release",
+				"de": "Erstveröffentlichung",
+				"ru": "Начальная версия",
+				"pt": "lançamento inicial",
+				"nl": "Eerste uitgave",
+				"fr": "Première version",
+				"it": "Versione iniziale",
+				"es": "Versión inicial",
+				"pl": "Pierwsze wydanie",
+				"uk": "Початкова версія",
+				"zh-cn": "首次出版"
+			}
+		},
+		"titleLang": {
+			"en": "NextUI",
+			"de": "NextUI",
+			"ru": "NextUI",
+			"pt": "NextUI",
+			"nl": "NextUI",
+			"fr": "NextUI",
+			"it": "NextUI",
+			"es": "NextUI",
+			"pl": "NextUI",
+			"uk": "NextUI",
+			"zh-cn": "NextUI"
+		},
+		"desc": {
+			"en": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"de": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"ru": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"pt": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"nl": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"fr": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"it": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"es": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"pl": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"uk": "Modern, flexible, responsive visualization platform for ioBroker.",
+			"zh-cn": "Modern, flexible, responsive visualization platform for ioBroker."
+		},
+		"authors": ["DerHausmeisterKrause <DerHausmeisterKrause@users.noreply.github.com>"],
+		"keywords": ["ioBroker", "smart home", "visualization", "TypeScript"],
+		"licenseInformation": {
+			"type": "free",
+			"license": "MIT"
+		},
+		"platform": "Javascript/Node.js",
+		"icon": "nextui.png",
+		"enabled": true,
+		"extIcon": "https://raw.githubusercontent.com/DerHausmeisterKrause/iobroker-nextui/main/admin/nextui.png",
+		"readme": "https://github.com/DerHausmeisterKrause/iobroker-nextui/blob/main/README.md",
+		"loglevel": "info",
+		"tier": 3,
+		"mode": "daemon",
+		"type": "general",
+		"compact": true,
+		"connectionType": "local",
+		"dataSource": "push",
+		"adminUI": {
+			"config": "json"
+		},
+		"dependencies": [
+			{
+				"js-controller": ">=6.0.11"
+			}
+		],
+		"globalDependencies": [
+			{
+				"admin": ">=7.0.23"
+			}
+		]
+	},
+	"native": {
+		"option1": true,
+		"option2": "42"
+	},
+	"objects": [],
+	"instanceObjects": []
+}
