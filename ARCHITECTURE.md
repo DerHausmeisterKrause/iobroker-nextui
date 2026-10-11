@@ -66,3 +66,16 @@ The eventual React application should consume this boundary through shared
 serializable contracts (for example in `packages/contracts`). Authentication,
 authorization, sessions, and any state-changing API must be added before a
 non-loopback deployment is considered safe.
+
+## Frontend workspace and delivery
+
+`apps/frontend` is a separate React/Vite workspace. It contains the visual
+shell, navigation, theme provider, reusable UI primitives, and an empty widget
+registry, while adapter runtime code remains under `src`. A production build is
+written to `www/frontend` and served by the adapter's own HTTP server.
+
+Static-file resolution is constrained to that directory. Existing assets are
+served directly, extensionless browser routes fall back to `index.html`, and
+`/api/*` requests never fall back to the SPA. This keeps future adapter APIs
+separate from browser navigation and avoids exposing files outside the frontend
+build directory.

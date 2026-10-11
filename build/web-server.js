@@ -22,6 +22,10 @@ __export(web_server_exports, {
 });
 module.exports = __toCommonJS(web_server_exports);
 var import_node_http = require("node:http");
+var import_promises = require("node:fs/promises");
+var import_node_path = require("node:path");
+class InvalidRequestError extends Error {
+}
 class NextuiWebServer {
   constructor(options) {
     this.options = options;
@@ -48,7 +52,7 @@ class NextuiWebServer {
       this.server = void 0;
       this.listeningPort = void 0;
       (_a = server.closeAllConnections) == null ? void 0 : _a.call(server);
-      await new Promise((resolve) => server.close(() => resolve()));
+      await new Promise((resolve2) => server.close(() => resolve2()));
     });
   }
   getStatus() {
@@ -67,8 +71,24 @@ class NextuiWebServer {
     return next;
   }
   startServer() {
-    return new Promise((resolve, reject) => {
-      const server = (0, import_node_http.createServer)((request, response) => this.handleRequest(request, response));
+    return new Promise((resolve2, reject) => {
+      const server = (0, import_node_http.createServer)((request, response) => {
+        void this.handleRequest(request, response).catch((error) => {
+          var _a, _b;
+          if (error instanceof InvalidRequestError) {
+            if (!response.headersSent) {
+              this.sendJson(response, 400, { error: "Bad request" });
+            }
+            return;
+          }
+          (_b = (_a = this.options).onError) == null ? void 0 : _b.call(_a, error instanceof Error ? error : new Error(String(error)));
+          if (!response.headersSent) {
+            this.sendJson(response, 500, { error: "Internal server error" });
+          } else if (!response.writableEnded) {
+            response.end();
+          }
+        });
+      });
       this.server = server;
       const onRuntimeError = (error) => {
         var _a, _b;
@@ -93,11 +113,11 @@ class NextuiWebServer {
         server.removeListener("error", onStartError);
         const address = server.address();
         this.listeningPort = typeof address === "object" && address ? address.port : this.options.port;
-        resolve();
+        resolve2();
       });
     });
   }
-  handleRequest(request, response) {
+  async handleRequest(request, response) {
     var _a;
     const requestUrl = new URL((_a = request.url) != null ? _a : "/", "http://localhost");
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -108,11 +128,91 @@ class NextuiWebServer {
       this.sendJson(response, 200, { status: "ok", server: this.getStatus() });
       return;
     }
+    if (requestUrl.pathname === "/api" || requestUrl.pathname.startsWith("/api/")) {
+      this.sendJson(response, 404, { error: "Not found" });
+      return;
+    }
+    if (await this.serveFrontendFile(requestUrl.pathname, request, response)) {
+      return;
+    }
     if (requestUrl.pathname === "/") {
       this.sendHtml(response, 200, this.renderPage());
       return;
     }
     this.sendJson(response, 404, { error: "Not found" });
+  }
+  async serveFrontendFile(pathname, request, response) {
+    var _a;
+    const frontendDirectory = (0, import_node_path.resolve)((_a = this.options.frontendDirectory) != null ? _a : (0, import_node_path.resolve)(__dirname, "../www/frontend"));
+    let decodedPath;
+    try {
+      decodedPath = decodeURIComponent(pathname);
+    } catch {
+      throw new InvalidRequestError("The request path is not valid percent-encoding.");
+    }
+    if (decodedPath.includes("\0")) {
+      return false;
+    }
+    let frontendRoot;
+    try {
+      frontendRoot = await (0, import_promises.realpath)(frontendDirectory);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return false;
+      }
+      throw error;
+    }
+    const relativePath = decodedPath.replace(/^\/+/, "");
+    const requestedFile = this.safeFrontendPath(frontendDirectory, relativePath || "index.html");
+    const requestedResult = requestedFile ? await this.sendFile(requestedFile, frontendRoot, request, response) : "not-servable";
+    if (requestedResult === "served") {
+      return true;
+    }
+    if (requestedResult === "not-servable") {
+      return false;
+    }
+    if (pathname === "/" || (0, import_node_path.extname)(relativePath) === "") {
+      const indexFile = this.safeFrontendPath(frontendDirectory, "index.html");
+      if (indexFile) {
+        return await this.sendFile(indexFile, frontendRoot, request, response) === "served";
+      }
+    }
+    return false;
+  }
+  safeFrontendPath(frontendDirectory, relativePath) {
+    const filePath = (0, import_node_path.resolve)(frontendDirectory, relativePath);
+    return filePath.startsWith(`${frontendDirectory}${import_node_path.sep}`) ? filePath : void 0;
+  }
+  async sendFile(filePath, frontendRoot, request, response) {
+    try {
+      const resolvedFile = await (0, import_promises.realpath)(filePath);
+      if (!resolvedFile.startsWith(`${frontendRoot}${import_node_path.sep}`)) {
+        return "not-servable";
+      }
+      if (!(await (0, import_promises.stat)(resolvedFile)).isFile()) {
+        return "not-servable";
+      }
+      const content = await (0, import_promises.readFile)(resolvedFile);
+      response.writeHead(200, {
+        "Cache-Control": "no-store",
+        "Content-Type": getContentType(filePath),
+        "X-Content-Type-Options": "nosniff"
+      });
+      response.end(request.method === "HEAD" ? void 0 : content);
+      return "served";
+    } catch (error) {
+      const code = error.code;
+      if (code === "ENOENT" || code === "ENOTDIR") {
+        return "missing";
+      }
+      if (code === "EACCES" || code === "EPERM") {
+        if (!response.headersSent) {
+          this.sendJson(response, 403, { error: "Forbidden" });
+        }
+        return "served";
+      }
+      throw error;
+    }
   }
   sendJson(response, statusCode, body) {
     var _a;
@@ -196,6 +296,19 @@ function escapeHtml(value) {
     '"': "&quot;"
   };
   return value.replace(/[&<>'"]/g, (character) => entities[character]);
+}
+function getContentType(filePath) {
+  var _a;
+  const contentTypes = {
+    ".css": "text/css; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".ico": "image/x-icon",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".woff2": "font/woff2"
+  };
+  return (_a = contentTypes[(0, import_node_path.extname)(filePath)]) != null ? _a : "application/octet-stream";
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

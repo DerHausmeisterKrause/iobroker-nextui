@@ -1,4 +1,7 @@
 import { get as httpGet } from 'node:http';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 import { NextuiWebServer } from './web-server';
 
@@ -10,7 +13,7 @@ describe('NextuiWebServer', () => {
 		const page = await request(server.getStatus().port, '/');
 		const health = await request(server.getStatus().port, '/api/health');
 		expect(page.statusCode).to.equal(200);
-		expect(page.body).to.contain('Visualisierung befindet sich in Entwicklung');
+		expect(page.body).to.match(/Visualisierung befindet sich in Entwicklung|<div id="root"><\/div>/);
 		expect(health.statusCode).to.equal(200);
 		expect(JSON.parse(health.body)).to.deep.include({ status: 'ok' });
 		expect(JSON.parse(health.body).server).to.include({ instance: 'nextui.0', version: '0.0.1' });
@@ -19,6 +22,73 @@ describe('NextuiWebServer', () => {
 		await server.stop();
 		expect(server.getStatus().running).to.equal(false);
 		await expectConnectionError(port);
+	});
+
+	it('serves built frontend files and falls back to the SPA entry point', async () => {
+		const frontendDirectory = await mkdtemp(join(tmpdir(), 'nextui-frontend-'));
+		const outsideDirectory = await mkdtemp(join(tmpdir(), 'nextui-outside-'));
+		await mkdir(join(frontendDirectory, 'assets'));
+		await mkdir(join(frontendDirectory, 'assets', 'directory'));
+		await writeFile(join(frontendDirectory, 'index.html'), '<main>NextUI frontend</main>');
+		await writeFile(join(frontendDirectory, 'assets', 'app.js'), 'console.log("nextui");');
+		await writeFile(join(outsideDirectory, 'secret.txt'), 'outside frontend root');
+		await symlink(join(outsideDirectory, 'secret.txt'), join(frontendDirectory, 'assets', 'linked.txt'));
+		const server = new NextuiWebServer({
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
+			frontendDirectory,
+		});
+
+		try {
+			await server.start();
+			const port = server.getStatus().port;
+			const [index, asset, route, traversal, apiRoute, apiRoot, invalid, linked, directory] = await Promise.all([
+				request(port, '/'),
+				request(port, '/assets/app.js'),
+				request(port, '/raeume'),
+				request(port, '/%2e%2e/package.json'),
+				request(port, '/api/unknown'),
+				request(port, '/api'),
+				request(port, '/assets/%E0%A4%A'),
+				request(port, '/assets/linked.txt'),
+				request(port, '/assets/directory'),
+			]);
+			expect(index.body).to.contain('NextUI frontend');
+			expect(asset.body).to.contain('console.log');
+			expect(asset.headers['content-type']).to.contain('text/javascript');
+			expect(route.body).to.contain('NextUI frontend');
+			expect(traversal.statusCode).to.equal(404);
+			expect(apiRoute.statusCode).to.equal(404);
+			expect(apiRoute.body).to.equal('{"error":"Not found"}');
+			expect(apiRoot.statusCode).to.equal(404);
+			expect(invalid.statusCode).to.equal(400);
+			expect(linked.statusCode).to.equal(404);
+			expect(directory.statusCode).to.equal(404);
+		} finally {
+			await server.stop();
+			await rm(frontendDirectory, { recursive: true, force: true });
+			await rm(outsideDirectory, { recursive: true, force: true });
+		}
+	});
+
+	it('serves the packaged frontend build from the default directory', async () => {
+		const server = createServer();
+		await server.start();
+		const port = server.getStatus().port;
+
+		try {
+			const index = await request(port, '/');
+			const assetPath = index.body.match(/src="(\/assets\/[^"']+\.js)"/)?.[1];
+			expect(index.body).to.contain('<div id="root"></div>');
+			expect(assetPath).to.be.a('string');
+			const asset = await request(port, assetPath!);
+			expect(asset.statusCode).to.equal(200);
+			expect(asset.headers['content-type']).to.contain('text/javascript');
+		} finally {
+			await server.stop();
+		}
 	});
 
 	it('reports a useful error for a port conflict', async () => {
@@ -88,13 +158,20 @@ async function expectConnectionError(port: number): Promise<void> {
 	}
 }
 
-function request(port: number, path: string): Promise<{ statusCode?: number; body: string }> {
+function request(
+	port: number,
+	path: string,
+): Promise<{ statusCode?: number; body: string; headers: Record<string, string | string[] | undefined> }> {
 	return new Promise((resolve, reject) => {
 		const request = httpGet({ hostname: '127.0.0.1', port, path }, response => {
 			const chunks: Buffer[] = [];
 			response.on('data', chunk => chunks.push(Buffer.from(chunk)));
 			response.on('end', () =>
-				resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }),
+				resolve({
+					statusCode: response.statusCode,
+					body: Buffer.concat(chunks).toString('utf8'),
+					headers: response.headers,
+				}),
 			);
 		});
 		request.once('error', reject);

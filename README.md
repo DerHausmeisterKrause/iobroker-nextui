@@ -46,8 +46,33 @@ Run `setup` only once per local dev-server profile. The watch command builds
 the adapter, starts the local ioBroker/Admin installation, and reloads the
 adapter after source changes.
 
-The adapter source starts in `src/main.ts`. Widgets and the future React
-frontend are intentionally not part of this foundation yet.
+The adapter source starts in `src/main.ts`. Widgets and an editor are not part
+of the current foundation yet.
+
+## Frontend
+
+Das React-Frontend liegt als eigenständige Workspace-Anwendung in
+`apps/frontend`. Es verwendet Vite, TypeScript, Tailwind CSS, Radix-basierte
+UI-Bausteine, Lucide-Icons und React Router. Die Navigation bleibt dabei im
+jeweiligen Browser-Tab; es werden keine Navigationsdaten in ioBroker-Zustände
+geschrieben.
+
+Für die lokale Frontend-Entwicklung:
+
+```bash
+npm run frontend:dev
+```
+
+Für einen produktionsnahen Build und die Auslieferung durch den Adapter:
+
+```bash
+npm run build
+```
+
+Vite schreibt die Dateien nach `www/frontend`. Der HTTP-Server liefert diese
+Dateien aus, bedient Client-Routen über den SPA-Fallback und hält `/api/*`
+außerhalb dieses Fallbacks. Nach dem Start des Adapters ist das Frontend unter
+`http://127.0.0.1:8090/` (oder dem konfigurierten Adapter-Port) erreichbar.
 
 ## HTTP-Webserver
 

@@ -5,6 +5,7 @@
 
 *.code-workspace
 node_modules
+*.tsbuildinfo
 nbproject
 
 # npm package files
