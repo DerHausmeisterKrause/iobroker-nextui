@@ -48,3 +48,27 @@ adapter after source changes.
 
 The adapter source starts in `src/main.ts`. Widgets and the future React
 frontend are intentionally not part of this foundation yet.
+
+## HTTP-Webserver
+
+Beim Start des Adapters wird ein eigener HTTP-Webserver gestartet. Der
+Standardport ist `8090`; Port und Bind-Adresse lassen sich pro Adapterinstanz
+in der Admin-Konfiguration einstellen. Standardmäßig bindet der Server nur an
+`127.0.0.1`. Eine LAN-Freigabe muss ausdrücklich über `Bind-Adresse` gewählt
+werden und sollte erst nach einer späteren Authentifizierung aktiviert werden.
+
+Die Startseite zeigt den aktuellen Adapterstatus. Für künftige Frontend-
+Kommunikation gibt es bereits den schreibgeschützten Endpunkt `GET /api/health`.
+Er liefert ausschließlich unkritische Statusdaten. Es gibt derzeit keine
+ioBroker-Schreibfunktionen über HTTP. Authentifizierung, Berechtigungen und
+Benutzerverwaltung bleiben für eine spätere API-Ausbaustufe reserviert.
+
+Die Webserver-Tests können mit `npm test` ausgeführt werden. Der vollständige
+Qualitätscheck ist:
+
+```bash
+npm run build
+npm run check
+npm run lint
+npm test
+```

@@ -1,12 +1,13 @@
 # Development Roadmap
 
 ## Phase 1 - Foundation
-- Repository setup
-- ioBroker adapter scaffold
-- Frontend setup
-- Development environment
-- Basic server
-- Testing and CI
+- [x] Repository setup
+- [x] ioBroker adapter scaffold
+- [ ] Frontend setup
+- [x] Development environment
+- [x] Basic server foundation and health endpoint
+- [x] Webserver lifecycle and conflict tests
+- [ ] Testing and CI expansion
 
 ## Phase 2 - Datapoints
 - ioBroker connection
