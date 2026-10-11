@@ -32,7 +32,9 @@ class NextuiWebServer {
   start() {
     return this.enqueue(async () => {
       var _a;
-      if ((_a = this.server) == null ? void 0 : _a.listening) return;
+      if ((_a = this.server) == null ? void 0 : _a.listening) {
+        return;
+      }
       await this.startServer();
     });
   }
@@ -40,7 +42,9 @@ class NextuiWebServer {
     return this.enqueue(async () => {
       var _a;
       const server = this.server;
-      if (!server) return;
+      if (!server) {
+        return;
+      }
       this.server = void 0;
       this.listeningPort = void 0;
       (_a = server.closeAllConnections) == null ? void 0 : _a.call(server);
@@ -66,14 +70,6 @@ class NextuiWebServer {
     return new Promise((resolve, reject) => {
       const server = (0, import_node_http.createServer)((request, response) => this.handleRequest(request, response));
       this.server = server;
-      const onStartError = (error) => {
-        server.removeListener("error", onRuntimeError);
-        if (this.server === server) {
-          this.server = void 0;
-          this.listeningPort = void 0;
-        }
-        reject(this.describeError(error));
-      };
       const onRuntimeError = (error) => {
         var _a, _b;
         const describedError = this.describeError(error);
@@ -82,6 +78,14 @@ class NextuiWebServer {
           this.server = void 0;
           this.listeningPort = void 0;
         }
+      };
+      const onStartError = (error) => {
+        server.removeListener("error", onRuntimeError);
+        if (this.server === server) {
+          this.server = void 0;
+          this.listeningPort = void 0;
+        }
+        reject(this.describeError(error));
       };
       server.once("error", onStartError);
       server.on("error", onRuntimeError);
@@ -174,7 +178,9 @@ class NextuiWebServer {
       return new Error(`Port ${this.options.port} auf ${this.options.bindAddress} ist bereits belegt.`);
     }
     if (error.code === "EACCES") {
-      return new Error(`Keine Berechtigung, den Port ${this.options.port} auf ${this.options.bindAddress} zu \xF6ffnen.`);
+      return new Error(
+        `Keine Berechtigung, den Port ${this.options.port} auf ${this.options.bindAddress} zu \xF6ffnen.`
+      );
     }
     return new Error(
       `HTTP-Server konnte auf ${this.options.bindAddress}:${this.options.port} nicht gestartet werden: ${error.message}`
