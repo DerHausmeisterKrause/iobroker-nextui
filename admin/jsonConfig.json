@@ -2,9 +2,13 @@
 	"i18n": true,
 	"type": "panel",
 	"items": {
-		"option1": {
-			"type": "checkbox",
-			"label": "option1",
+		"port": {
+			"type": "number",
+			"label": "HTTP-Port",
+			"default": 8090,
+			"min": 1,
+			"max": 65535,
+			"step": 1,
 			"newLine": true,
 			"xs": 12,
 			"sm": 12,
@@ -12,9 +16,10 @@
 			"lg": 4,
 			"xl": 4
 		},
-		"option2": {
+		"bindAddress": {
 			"type": "text",
-			"label": "option2",
+			"label": "Bind-Adresse",
+			"default": "127.0.0.1",
 			"newLine": true,
 			"xs": 12,
 			"sm": 12,

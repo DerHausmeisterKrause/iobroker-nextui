@@ -22,101 +22,55 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
+var import_web_server = require("./web-server");
+const DEFAULT_PORT = 8090;
+const DEFAULT_BIND_ADDRESS = "127.0.0.1";
 class Nextui extends utils.Adapter {
+  webServer;
   constructor(options = {}) {
-    super({
-      ...options,
-      name: "nextui"
-    });
+    super({ ...options, name: "nextui" });
     this.on("ready", this.onReady.bind(this));
     this.on("stateChange", this.onStateChange.bind(this));
     this.on("unload", this.onUnload.bind(this));
   }
-  /**
-   * Is called when databases are connected and adapter received configuration.
-   */
   async onReady() {
-    this.log.debug("config option1: ${this.config.option1}");
-    this.log.debug("config option2: ${this.config.option2}");
-    await this.setObjectNotExistsAsync("testVariable", {
-      type: "state",
-      common: {
-        name: "testVariable",
-        type: "boolean",
-        role: "indicator",
-        read: true,
-        write: true
-      },
-      native: {}
-    });
-    this.subscribeStates("testVariable");
-    await this.setState("testVariable", true);
-    await this.setState("testVariable", { val: true, ack: true });
-    await this.setState("testVariable", { val: true, ack: true, expire: 30 });
-    const pwdResult = await this.checkPasswordAsync("admin", "iobroker");
-    this.log.info(`check user admin pw iobroker: ${JSON.stringify(pwdResult)}`);
-    const groupResult = await this.checkGroupAsync("admin", "admin");
-    this.log.info(`check group user admin group admin: ${JSON.stringify(groupResult)}`);
-  }
-  /**
-   * Is called when adapter shuts down - callback has to be called under any circumstances!
-   *
-   * @param callback - Callback function
-   */
-  onUnload(callback) {
+    var _a, _b, _c;
+    const port = this.getConfiguredPort();
+    const bindAddress = ((_a = this.config.bindAddress) == null ? void 0 : _a.trim()) || DEFAULT_BIND_ADDRESS;
+    const instance = (_b = this.namespace) != null ? _b : `nextui.${this.instance}`;
+    this.webServer = new import_web_server.NextuiWebServer({ port, bindAddress, instance, version: (_c = this.version) != null ? _c : "0.0.1" });
     try {
-      callback();
+      await this.webServer.start();
+      this.log.info(`HTTP-Server f\xFCr ${instance} l\xE4uft auf ${bindAddress}:${this.webServer.getStatus().port}`);
     } catch (error) {
-      this.log.error(`Error during unloading: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.log.error(`HTTP-Server konnte nicht gestartet werden: ${message}`);
+      this.webServer = void 0;
+      this.terminate(message, 1);
+    }
+  }
+  getConfiguredPort() {
+    const port = Number(this.config.port);
+    if (Number.isInteger(port) && port >= 1 && port <= 65535) return port;
+    this.log.warn(`Ung\xFCltiger HTTP-Port "${this.config.port}"; verwende ${DEFAULT_PORT}.`);
+    return DEFAULT_PORT;
+  }
+  onUnload(callback) {
+    const webServer = this.webServer;
+    this.webServer = void 0;
+    if (!webServer) {
       callback();
+      return;
     }
+    webServer.stop().then(callback).catch((error) => {
+      this.log.error(`Fehler beim Beenden des HTTP-Servers: ${error.message}`);
+      callback();
+    });
   }
-  // If you need to react to object changes, uncomment the following block and the corresponding line in the constructor.
-  // You also need to subscribe to the objects with `this.subscribeObjects`, similar to `this.subscribeStates`.
-  // /**
-  //  * Is called if a subscribed object changes
-  //  */
-  // private onObjectChange(id: string, obj: ioBroker.Object | null | undefined): void {
-  // 	if (obj) {
-  // 		// The object was changed
-  // 		this.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
-  // 	} else {
-  // 		// The object was deleted
-  // 		this.log.info(`object ${id} deleted`);
-  // 	}
-  // }
-  /**
-   * Is called if a subscribed state changes
-   *
-   * @param id - State ID
-   * @param state - State object
-   */
   onStateChange(id, state) {
-    if (state) {
-      this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-      if (state.ack === false) {
-        this.log.info(`User command received for ${id}: ${state.val}`);
-      }
-    } else {
-      this.log.info(`state ${id} deleted`);
-    }
+    if (state) this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+    else this.log.info(`state ${id} deleted`);
   }
-  // If you need to accept messages in your adapter, uncomment the following block and the corresponding line in the constructor.
-  // /**
-  //  * Some message was sent to this instance over message box. Used by email, pushover, text2speech, ...
-  //  * Using this method requires "common.messagebox" property to be set to true in io-package.json
-  //  */
-  //
-  // private onMessage(obj: ioBroker.Message): void {
-  // 	if (typeof obj === 'object' && obj.message) {
-  // 		if (obj.command === 'send') {
-  // 			// e.g. send email or pushover or whatever
-  // 			this.log.info('send command');
-  // 			// Send response in callback if required
-  // 			if (obj.callback) this.sendTo(obj.from, obj.command, 'Message received', obj.callback);
-  // 		}
-  // 	}
-  // }
 }
 if (require.main !== module) {
   module.exports = (options) => new Nextui(options);

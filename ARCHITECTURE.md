@@ -53,3 +53,16 @@ must not import adapter internals or hardcode ioBroker datapoint IDs.
 This keeps the current adapter scaffold usable on its own and leaves room for
 a later npm-workspaces monorepo without putting frontend widgets into the
 adapter foundation.
+
+## HTTP API boundary
+
+The adapter owns a small native Node.js HTTP server in `src/web-server.ts`.
+The server lifecycle is tied to the ioBroker `ready` and `unload` events, and
+each adapter instance has its own configured port. It binds to loopback by
+default. The initial API is intentionally read-only: `GET /api/health` exposes
+only instance, version, bind address, port, and running status.
+
+The eventual React application should consume this boundary through shared
+serializable contracts (for example in `packages/contracts`). Authentication,
+authorization, sessions, and any state-changing API must be added before a
+non-loopback deployment is considered safe.
