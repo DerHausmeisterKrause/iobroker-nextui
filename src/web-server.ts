@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 
 export interface WebServerOptions {
@@ -20,6 +20,9 @@ export interface WebServerStatus {
 }
 
 type LifecycleOperation = () => Promise<void>;
+type FileResult = 'served' | 'missing' | 'not-servable';
+
+class InvalidRequestError extends Error {}
 
 export class NextuiWebServer {
 	private server: Server | undefined;
@@ -71,9 +74,17 @@ export class NextuiWebServer {
 		return new Promise((resolve, reject) => {
 			const server = createServer((request, response) => {
 				void this.handleRequest(request, response).catch(error => {
+					if (error instanceof InvalidRequestError) {
+						if (!response.headersSent) {
+							this.sendJson(response, 400, { error: 'Bad request' });
+						}
+						return;
+					}
 					this.options.onError?.(error instanceof Error ? error : new Error(String(error)));
 					if (!response.headersSent) {
 						this.sendJson(response, 500, { error: 'Internal server error' });
+					} else if (!response.writableEnded) {
+						response.end();
 					}
 				});
 			});
@@ -140,21 +151,41 @@ export class NextuiWebServer {
 		response: ServerResponse,
 	): Promise<boolean> {
 		const frontendDirectory = resolve(this.options.frontendDirectory ?? resolve(__dirname, '../www/frontend'));
-		const decodedPath = decodeURIComponent(pathname);
+		let decodedPath: string;
+		try {
+			decodedPath = decodeURIComponent(pathname);
+		} catch {
+			throw new InvalidRequestError('The request path is not valid percent-encoding.');
+		}
 		if (decodedPath.includes('\0')) {
 			return false;
+		}
+		let frontendRoot: string;
+		try {
+			frontendRoot = await realpath(frontendDirectory);
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+				return false;
+			}
+			throw error;
 		}
 
 		const relativePath = decodedPath.replace(/^\/+/, '');
 		const requestedFile = this.safeFrontendPath(frontendDirectory, relativePath || 'index.html');
-		if (requestedFile && (await this.sendFile(requestedFile, request, response))) {
+		const requestedResult = requestedFile
+			? await this.sendFile(requestedFile, frontendRoot, request, response)
+			: 'not-servable';
+		if (requestedResult === 'served') {
 			return true;
+		}
+		if (requestedResult === 'not-servable') {
+			return false;
 		}
 
 		if (pathname === '/' || extname(relativePath) === '') {
 			const indexFile = this.safeFrontendPath(frontendDirectory, 'index.html');
 			if (indexFile) {
-				return this.sendFile(indexFile, request, response);
+				return (await this.sendFile(indexFile, frontendRoot, request, response)) === 'served';
 			}
 		}
 		return false;
@@ -165,19 +196,38 @@ export class NextuiWebServer {
 		return filePath.startsWith(`${frontendDirectory}${sep}`) ? filePath : undefined;
 	}
 
-	private async sendFile(filePath: string, request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+	private async sendFile(
+		filePath: string,
+		frontendRoot: string,
+		request: IncomingMessage,
+		response: ServerResponse,
+	): Promise<FileResult> {
 		try {
-			const content = await readFile(filePath);
+			const resolvedFile = await realpath(filePath);
+			if (!resolvedFile.startsWith(`${frontendRoot}${sep}`)) {
+				return 'not-servable';
+			}
+			if (!(await stat(resolvedFile)).isFile()) {
+				return 'not-servable';
+			}
+			const content = await readFile(resolvedFile);
 			response.writeHead(200, {
 				'Cache-Control': 'no-store',
 				'Content-Type': getContentType(filePath),
 				'X-Content-Type-Options': 'nosniff',
 			});
 			response.end(request.method === 'HEAD' ? undefined : content);
-			return true;
+			return 'served';
 		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-				return false;
+			const code = (error as NodeJS.ErrnoException).code;
+			if (code === 'ENOENT' || code === 'ENOTDIR') {
+				return 'missing';
+			}
+			if (code === 'EACCES' || code === 'EPERM') {
+				if (!response.headersSent) {
+					this.sendJson(response, 403, { error: 'Forbidden' });
+				}
+				return 'served';
 			}
 			throw error;
 		}

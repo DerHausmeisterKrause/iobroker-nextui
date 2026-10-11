@@ -1,5 +1,5 @@
 import { get as httpGet } from 'node:http';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect } from 'chai';
@@ -26,9 +26,13 @@ describe('NextuiWebServer', () => {
 
 	it('serves built frontend files and falls back to the SPA entry point', async () => {
 		const frontendDirectory = await mkdtemp(join(tmpdir(), 'nextui-frontend-'));
+		const outsideDirectory = await mkdtemp(join(tmpdir(), 'nextui-outside-'));
 		await mkdir(join(frontendDirectory, 'assets'));
+		await mkdir(join(frontendDirectory, 'assets', 'directory'));
 		await writeFile(join(frontendDirectory, 'index.html'), '<main>NextUI frontend</main>');
 		await writeFile(join(frontendDirectory, 'assets', 'app.js'), 'console.log("nextui");');
+		await writeFile(join(outsideDirectory, 'secret.txt'), 'outside frontend root');
+		await symlink(join(outsideDirectory, 'secret.txt'), join(frontendDirectory, 'assets', 'linked.txt'));
 		const server = new NextuiWebServer({
 			port: 0,
 			bindAddress: '127.0.0.1',
@@ -40,13 +44,16 @@ describe('NextuiWebServer', () => {
 		try {
 			await server.start();
 			const port = server.getStatus().port;
-			const [index, asset, route, traversal, apiRoute, apiRoot] = await Promise.all([
+			const [index, asset, route, traversal, apiRoute, apiRoot, invalid, linked, directory] = await Promise.all([
 				request(port, '/'),
 				request(port, '/assets/app.js'),
 				request(port, '/raeume'),
 				request(port, '/%2e%2e/package.json'),
 				request(port, '/api/unknown'),
 				request(port, '/api'),
+				request(port, '/assets/%E0%A4%A'),
+				request(port, '/assets/linked.txt'),
+				request(port, '/assets/directory'),
 			]);
 			expect(index.body).to.contain('NextUI frontend');
 			expect(asset.body).to.contain('console.log');
@@ -56,9 +63,13 @@ describe('NextuiWebServer', () => {
 			expect(apiRoute.statusCode).to.equal(404);
 			expect(apiRoute.body).to.equal('{"error":"Not found"}');
 			expect(apiRoot.statusCode).to.equal(404);
+			expect(invalid.statusCode).to.equal(400);
+			expect(linked.statusCode).to.equal(404);
+			expect(directory.statusCode).to.equal(404);
 		} finally {
 			await server.stop();
 			await rm(frontendDirectory, { recursive: true, force: true });
+			await rm(outsideDirectory, { recursive: true, force: true });
 		}
 	});
 
