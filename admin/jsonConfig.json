@@ -26,7 +26,7 @@
 			"md": 6,
 			"lg": 4,
 			"xl": 4,
-			"help": "127.0.0.1: nur direkt auf dem ioBroker-Host oder per SSH-Tunnel erreichbar. 0.0.0.0: Oberfläche im LAN ohne Anmeldung erreichbar; Datenpunkt-API bleibt deaktiviert. Nicht ins Internet freigeben."
+			"help": "Sicherheitsgrenze: derzeit nur 127.0.0.1/::1/localhost erlaubt. LAN-Zugriff ausschließlich über einen separat konfigurierten HTTPS-Reverse-Proxy oder SSH-Tunnel."
 		},
 		"datapointApiDevelopmentMode": {
 			"type": "checkbox",
@@ -50,6 +50,18 @@
 			"md": 12,
 			"lg": 8,
 			"xl": 8
+		},
+		"uiPassword": {
+			"type": "password",
+			"label": "NextUI-Zugangspasswort",
+			"default": "",
+			"help": "Optionaler lokaler Zugangsschutz (mindestens 16 Zeichen). Bei Einrichtung schützt HTTP Basic sämtliche NextUI-Seiten und APIs. Nur mit SSH-Tunnel oder HTTPS-Reverse-Proxy verwenden, niemals über unverschlüsseltes LAN-HTTP.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 8,
+			"lg": 6,
+			"xl": 6
 		}
 	}
 }

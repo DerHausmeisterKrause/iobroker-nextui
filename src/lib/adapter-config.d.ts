@@ -6,6 +6,7 @@ declare global {
 		interface AdapterConfig {
 			port: number;
 			bindAddress: string;
+			uiPassword: string;
 			datapointApiDevelopmentMode: boolean;
 			datapointApiAllowedPatterns: string;
 		}

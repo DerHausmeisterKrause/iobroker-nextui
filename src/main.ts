@@ -5,6 +5,7 @@
 import * as utils from '@iobroker/adapter-core';
 import { DatapointApi, parseAllowedPatterns, type DatapointAdapterApi } from './datapoint-api';
 import { NextuiWebServer } from './web-server';
+import { HttpAuthenticator } from './http-auth';
 
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -23,6 +24,29 @@ class Nextui extends utils.Adapter {
 		const port = this.getConfiguredPort();
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
+		if (!isLoopbackAddress(bindAddress)) {
+			const message =
+				'NextUI verweigert derzeit die unverschlüsselte LAN-Bindung. Bitte Loopback und einen HTTPS-Reverse-Proxy verwenden.';
+			this.log.error(message);
+			this.terminate(message, 1);
+			return;
+		}
+		let authenticator: HttpAuthenticator | undefined;
+		const uiPassword = this.config.uiPassword ?? '';
+		if (uiPassword.length > 0) {
+			try {
+				authenticator = new HttpAuthenticator(uiPassword);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				this.log.error(`NextUI-Zugangsschutz: ${message}`);
+				this.terminate(message, 1);
+				return;
+			}
+		} else {
+			this.log.warn(
+				'NextUI läuft ohne Passwortschutz. Nur über lokalen SSH-Tunnel verwenden; nicht öffentlich weiterleiten.',
+			);
+		}
 		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
 		const datapointApiEnabled =
 			this.config.datapointApiDevelopmentMode === true &&
@@ -41,6 +65,7 @@ class Nextui extends utils.Adapter {
 			bindAddress,
 			instance,
 			version: this.version ?? '0.0.1',
+			authenticator,
 			datapointApi: this.datapointApi,
 			datapointApiEnabled,
 			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
