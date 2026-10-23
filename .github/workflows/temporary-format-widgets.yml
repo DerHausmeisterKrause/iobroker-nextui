@@ -1,0 +1,35 @@
+name: Temporary format new widget files
+on:
+  push:
+    branches:
+      - feat/nextui-readonly-widgets
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.repository == 'DerHausmeisterKrause/iobroker-nextui'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/nextui-readonly-widgets
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply repository Prettier style to changed source files
+        run: |
+          npx prettier --write apps/frontend/src/features/widgets/dashboard-widgets.tsx apps/frontend/src/features/widgets/dashboard-widgets.test.tsx apps/frontend/src/features/widgets/registry.ts apps/frontend/src/app.tsx src/datapoint-api.ts src/datapoint-api.test.ts src/web-server.ts src/web-server.test.ts
+      - name: Commit formatting updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/frontend/src/features/widgets apps/frontend/src/app.tsx src/datapoint-api.ts src/datapoint-api.test.ts src/web-server.ts src/web-server.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format widget feature sources"
+            git push origin HEAD:feat/nextui-readonly-widgets
+          fi
