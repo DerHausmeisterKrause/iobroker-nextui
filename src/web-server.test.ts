@@ -41,7 +41,7 @@ describe('NextuiWebServer', () => {
 		await server.start();
 		try {
 			const port = server.getStatus().port;
-			for (const path of ['/', '/api/health', '/api/datapoints', '/api/datapoints/by-id?id=safe.0.state']) {
+			for (const path of ['/', '/api/health', '/api/datapoints']) {
 				const anonymous = await request(port, path);
 				expect(anonymous.statusCode).to.equal(401);
 				expect(anonymous.headers['www-authenticate']).to.contain('Basic realm="NextUI"');
@@ -52,6 +52,7 @@ describe('NextuiWebServer', () => {
 			expect((await request(port, '/', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/health', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/datapoints', validAuth)).statusCode).to.equal(200);
+			expect((await request(port, '/api/datapoints/by-id?id=safe.0.state', validAuth)).statusCode).to.equal(404);
 		} finally {
 			await server.stop();
 		}
