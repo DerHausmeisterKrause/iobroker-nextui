@@ -43,8 +43,15 @@
 			"uk": "Modern, flexible, responsive visualization platform for ioBroker.",
 			"zh-cn": "Modern, flexible, responsive visualization platform for ioBroker."
 		},
-		"authors": ["DerHausmeisterKrause <DerHausmeisterKrause@users.noreply.github.com>"],
-		"keywords": ["ioBroker", "smart home", "visualization", "TypeScript"],
+		"authors": [
+			"DerHausmeisterKrause <DerHausmeisterKrause@users.noreply.github.com>"
+		],
+		"keywords": [
+			"ioBroker",
+			"smart home",
+			"visualization",
+			"TypeScript"
+		],
 		"licenseInformation": {
 			"type": "free",
 			"license": "MIT"
@@ -73,13 +80,20 @@
 			{
 				"admin": ">=7.0.23"
 			}
+		],
+		"encryptedNative": [
+			"uiPassword"
+		],
+		"protectedNative": [
+			"uiPassword"
 		]
 	},
 	"native": {
 		"port": 8090,
 		"bindAddress": "127.0.0.1",
 		"datapointApiDevelopmentMode": false,
-		"datapointApiAllowedPatterns": ""
+		"datapointApiAllowedPatterns": "",
+		"uiPassword": ""
 	},
 	"objects": [],
 	"instanceObjects": []
