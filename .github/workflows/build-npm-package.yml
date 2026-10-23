@@ -52,10 +52,23 @@ jobs:
           npm pack --pack-destination dist
           package_file="$(find dist -maxdepth 1 -type f -name 'iobroker.nextui-*.tgz' -print -quit)"
           test -n "$package_file"
-          tar -tzf "$package_file" | grep -qx 'package/io-package.json'
-          tar -tzf "$package_file" | grep -qx 'package/build/main.js'
-          tar -tzf "$package_file" | grep -qx 'package/www/frontend/index.html'
-          tar -tzf "$package_file" | grep -q '^package/www/frontend/assets/.*\\.js$'
+          tar -tzf "$package_file" > dist/package-contents.txt
+          grep -qx 'package/io-package.json' dist/package-contents.txt
+          grep -qx 'package/build/main.js' dist/package-contents.txt
+          grep -qx 'package/www/frontend/index.html' dist/package-contents.txt
+          grep -Eq '^package/www/frontend/assets/.*\.js
+          echo "Built package: $package_file"
+          ls -lh "$package_file"
+
+      - name: Upload installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextui-npm-package-${{ github.run_number }}
+          path: dist/*.tgz
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+ dist/package-contents.txt
           echo "Built package: $package_file"
           ls -lh "$package_file"
 
