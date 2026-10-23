@@ -7,7 +7,8 @@
 - [x] Development environment
 - [x] Basic server foundation and health endpoint
 - [x] Webserver lifecycle and conflict tests
-- [ ] Testing and CI expansion
+- [x] Basic CI and package artifacts
+- [ ] Further test coverage and production readiness
 
 ## Phase 2 - Datapoints
 - [x] ioBroker connection (read-only local development API)
@@ -37,7 +38,8 @@
 - Camera gateway
 - HTML widgets
 - Energy flow widgets
-- Advanced permissions
+- [x] Initial single-password HTTP authentication (loopback + external HTTPS)
+- [ ] ioBroker user integration and advanced ACL permissions
 
 ## Phase 6 - Professional
 - Installers
