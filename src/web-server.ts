@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
+import { HttpAuthenticator } from './http-auth';
 import type { DatapointListItem, DatapointListResponse, DatapointQuery } from './datapoint-api';
 
 export interface WebServerOptions {
@@ -9,6 +10,7 @@ export interface WebServerOptions {
 	instance: string;
 	version: string;
 	frontendDirectory?: string;
+	authenticator?: HttpAuthenticator;
 	datapointApi?: {
 		list(query: DatapointQuery): Promise<DatapointListResponse>;
 		get(id: string): Promise<DatapointListItem | undefined>;
@@ -125,6 +127,23 @@ export class NextuiWebServer {
 	}
 
 	private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+		if (this.options.authenticator) {
+			const result = this.options.authenticator.verify(request.headers.authorization, request.socket.remoteAddress);
+			if (!result.allowed) {
+				const headers: Record<string, string> = {
+					'Cache-Control': 'no-store',
+					'Content-Type': 'application/json; charset=utf-8',
+					'X-Content-Type-Options': 'nosniff',
+					'WWW-Authenticate': 'Basic realm="NextUI", charset="UTF-8"',
+				};
+				if (result.retryAfterSeconds) {
+					headers['Retry-After'] = String(result.retryAfterSeconds);
+				}
+				response.writeHead(result.retryAfterSeconds ? 429 : 401, headers);
+				response.end(request.method === 'HEAD' ? undefined : JSON.stringify({ error: 'Authentication required' }));
+				return;
+			}
+		}
 		const requestUrl = new URL(request.url ?? '/', 'http://localhost');
 		if (request.method !== 'GET' && request.method !== 'HEAD') {
 			this.sendJson(response, 405, { error: 'Method not allowed' });
