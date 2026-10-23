@@ -8,9 +8,7 @@ import {
 	type DashboardDocument,
 } from './dashboard-store';
 
-const initialWidgets = [
-	{ id: 'w-1', title: 'Temperatur', kind: 'number', datapointId: 'safe.0.temperature' },
-] as const;
+const initialWidgets = [{ id: 'w-1', title: 'Temperatur', kind: 'number', datapointId: 'safe.0.temperature' }] as const;
 
 function createStore(): { store: DashboardStore; readSaved: () => DashboardDocument | undefined } {
 	let saved: DashboardDocument | undefined;

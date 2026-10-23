@@ -221,7 +221,8 @@ export class NextuiWebServer {
 		let sameOrigin = false;
 		try {
 			const parsed = new URL(origin ?? '');
-			sameOrigin = (parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host === request.headers.host;
+			sameOrigin =
+				(parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host === request.headers.host;
 		} catch {
 			// An absent, invalid or opaque origin is not a trusted write.
 		}

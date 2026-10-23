@@ -175,7 +175,8 @@ export function DashboardWidgets(): JSX.Element {
 				<p className="text-sm font-semibold text-sky-600 dark:text-sky-400">NextUI · Frühe Vorschau</p>
 				<h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Mein Dashboard</h2>
 				<p className="mt-3 max-w-3xl text-slate-600 dark:text-slate-300">
-					Kacheln werden jetzt in der ioBroker-Instanz gespeichert und können auf mehreren Geräten angezeigt werden.
+					Kacheln werden jetzt in der ioBroker-Instanz gespeichert und können auf mehreren Geräten angezeigt
+					werden.
 				</p>
 			</div>
 			<div className="flex flex-wrap items-center gap-3">
@@ -187,14 +188,39 @@ export function DashboardWidgets(): JSX.Element {
 				>
 					Dashboard neu laden
 				</button>
-				<p className="text-xs text-slate-500">{widgets.length} von {MAX_WIDGETS} Kacheln · Werte alle 10 Sekunden</p>
+				<p className="text-xs text-slate-500">
+					{widgets.length} von {MAX_WIDGETS} Kacheln · Werte alle 10 Sekunden
+				</p>
 			</div>
-			{loading && <p role="status" className="text-sm text-slate-500">Dashboard wird geladen …</p>}
-			{saving && <p role="status" className="text-sm text-slate-500">Änderungen werden gespeichert …</p>}
-			{error && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">{error}</p>}
+			{loading && (
+				<p
+					role="status"
+					className="text-sm text-slate-500"
+				>
+					Dashboard wird geladen …
+				</p>
+			)}
+			{saving && (
+				<p
+					role="status"
+					className="text-sm text-slate-500"
+				>
+					Änderungen werden gespeichert …
+				</p>
+			)}
+			{error && (
+				<p
+					role="alert"
+					className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+				>
+					{error}
+				</p>
+			)}
 			{document && !loading && widgets.length === 0 && legacyWidgets.length > 0 && (
 				<Card className="space-y-3 hover:translate-y-0">
-					<p className="text-sm">Es wurden {legacyWidgets.length} ältere, nur in diesem Browser gespeicherte Kacheln gefunden.</p>
+					<p className="text-sm">
+						Es wurden {legacyWidgets.length} ältere, nur in diesem Browser gespeicherte Kacheln gefunden.
+					</p>
 					<button
 						type="button"
 						disabled={saving}
@@ -207,28 +233,39 @@ export function DashboardWidgets(): JSX.Element {
 			)}
 			<Card className="space-y-3 hover:translate-y-0">
 				<div className="flex items-center gap-2">
-					<Plus className="text-sky-600" size={19} />
+					<Plus
+						className="text-sky-600"
+						size={19}
+					/>
 					<h3 className="font-bold">Kachel hinzufügen</h3>
 				</div>
-				<WidgetConfigurator onAdd={addWidget} disabled={!document || loading || saving || widgets.length >= MAX_WIDGETS} />
+				<WidgetConfigurator
+					onAdd={addWidget}
+					disabled={!document || loading || saving || widgets.length >= MAX_WIDGETS}
+				/>
 			</Card>
-			{document && !loading && (widgets.length === 0 ? (
-				<div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">
-					<Activity className="mx-auto mb-3 text-sky-500" size={26} />
-					<p className="font-semibold">Noch keine Kacheln angelegt</p>
-					<p className="mt-2 text-sm text-slate-500">Suche oben einen freigegebenen Datenpunkt.</p>
-				</div>
-			) : (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{widgets.map(widget => (
-						<DatapointWidget
-							key={widget.id}
-							config={widget}
-							onRemove={() => void save(widgets.filter(item => item.id !== widget.id))}
+			{document &&
+				!loading &&
+				(widgets.length === 0 ? (
+					<div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">
+						<Activity
+							className="mx-auto mb-3 text-sky-500"
+							size={26}
 						/>
-					))}
-				</div>
-			))}
+						<p className="font-semibold">Noch keine Kacheln angelegt</p>
+						<p className="mt-2 text-sm text-slate-500">Suche oben einen freigegebenen Datenpunkt.</p>
+					</div>
+				) : (
+					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+						{widgets.map(widget => (
+							<DatapointWidget
+								key={widget.id}
+								config={widget}
+								onRemove={() => void save(widgets.filter(item => item.id !== widget.id))}
+							/>
+						))}
+					</div>
+				))}
 		</section>
 	);
 }

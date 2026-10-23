@@ -111,7 +111,10 @@ export class DashboardStore {
 			await this.persistence.write(next);
 			return next;
 		});
-		this.queue = operation.then(() => undefined, () => undefined);
+		this.queue = operation.then(
+			() => undefined,
+			() => undefined,
+		);
 		return operation;
 	}
 }

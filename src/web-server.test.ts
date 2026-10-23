@@ -93,9 +93,29 @@ describe('NextuiWebServer', () => {
 			expect(JSON.parse(saved.body).revision).to.equal(1);
 			expect((await writeDashboard(port, auth, body)).statusCode).to.equal(409);
 			expect(JSON.parse((await request(port, '/api/dashboard', auth)).body).widgets).to.deep.equal(widgets);
-			expect((await writeDashboard(port, auth, { expectedRevision: 1, widgets: [{ ...widgets[0], kind: 'script' }] })).statusCode).to.equal(400);
-			expect((await writeDashboard(port, auth, { expectedRevision: 1, widgets }, {}, 'text/plain')).statusCode).to.equal(415);
-			expect((await writeDashboard(port, auth, { expectedRevision: 1, widgets }, {}, 'application/json', 'x'.repeat(25000))).statusCode).to.equal(413);
+			expect(
+				(
+					await writeDashboard(port, auth, {
+						expectedRevision: 1,
+						widgets: [{ ...widgets[0], kind: 'script' }],
+					})
+				).statusCode,
+			).to.equal(400);
+			expect(
+				(await writeDashboard(port, auth, { expectedRevision: 1, widgets }, {}, 'text/plain')).statusCode,
+			).to.equal(415);
+			expect(
+				(
+					await writeDashboard(
+						port,
+						auth,
+						{ expectedRevision: 1, widgets },
+						{},
+						'application/json',
+						'x'.repeat(25000),
+					)
+				).statusCode,
+			).to.equal(413);
 		} finally {
 			await server.stop();
 		}
@@ -356,24 +376,29 @@ function writeDashboard(
 ): Promise<{ statusCode?: number; body: string }> {
 	const raw = bodyOverride ?? JSON.stringify(body);
 	return new Promise((resolve, reject) => {
-		const req = httpRequest({
-			hostname: '127.0.0.1',
-			port,
-			path: '/api/dashboard',
-			method: 'PUT',
-			headers: {
-				Authorization: authorization,
-				Origin: `http://127.0.0.1:${port}`,
-				'X-NextUI-Write': '1',
-				'Content-Type': contentType,
-				'Content-Length': Buffer.byteLength(raw),
-				...overrides,
+		const req = httpRequest(
+			{
+				hostname: '127.0.0.1',
+				port,
+				path: '/api/dashboard',
+				method: 'PUT',
+				headers: {
+					Authorization: authorization,
+					Origin: `http://127.0.0.1:${port}`,
+					'X-NextUI-Write': '1',
+					'Content-Type': contentType,
+					'Content-Length': Buffer.byteLength(raw),
+					...overrides,
+				},
 			},
-		}, response => {
-			const chunks: Buffer[] = [];
-			response.on('data', chunk => chunks.push(Buffer.from(chunk)));
-			response.on('end', () => resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
-		});
+			response => {
+				const chunks: Buffer[] = [];
+				response.on('data', chunk => chunks.push(Buffer.from(chunk)));
+				response.on('end', () =>
+					resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }),
+				);
+			},
+		);
 		req.on('error', reject);
 		req.end(raw);
 	});
