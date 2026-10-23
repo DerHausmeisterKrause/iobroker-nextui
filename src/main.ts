@@ -6,6 +6,7 @@ import * as utils from '@iobroker/adapter-core';
 import { DatapointApi, parseAllowedPatterns, type DatapointAdapterApi } from './datapoint-api';
 import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
+import { DashboardStore } from './dashboard-store';
 
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -13,6 +14,7 @@ const DEFAULT_BIND_ADDRESS = '127.0.0.1';
 class Nextui extends utils.Adapter {
 	private webServer: NextuiWebServer | undefined;
 	private datapointApi: DatapointApi | undefined;
+	private dashboardStore: DashboardStore | undefined;
 
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({ ...options, name: 'nextui' });
@@ -60,12 +62,28 @@ class Nextui extends utils.Adapter {
 		this.datapointApi = datapointApiEnabled
 			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
 			: undefined;
+		this.dashboardStore = authenticator
+			? new DashboardStore({
+					read: async () => {
+						const stored = await this.getObjectAsync('dashboard');
+						return stored?.native?.dashboard;
+					},
+					write: async document => {
+						await this.setObjectAsync('dashboard', {
+							type: 'channel',
+							common: { name: 'NextUI Dashboard' },
+							native: { dashboard: document },
+						});
+					},
+				})
+			: undefined;
 		this.webServer = new NextuiWebServer({
 			port,
 			bindAddress,
 			instance,
 			version: this.version ?? '0.0.1',
 			authenticator,
+			dashboardStore: this.dashboardStore,
 			datapointApi: this.datapointApi,
 			datapointApiEnabled,
 			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
@@ -95,6 +113,7 @@ class Nextui extends utils.Adapter {
 		const webServer = this.webServer;
 		this.webServer = undefined;
 		this.datapointApi = undefined;
+		this.dashboardStore = undefined;
 		if (!webServer) {
 			callback();
 			return;

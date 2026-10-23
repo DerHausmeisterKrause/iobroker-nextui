@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import type { HttpAuthenticator } from './http-auth';
+import { DashboardConflictError, InvalidDashboardError, type DashboardStore } from './dashboard-store';
 import type { DatapointListItem, DatapointListResponse, DatapointQuery } from './datapoint-api';
 
 export interface WebServerOptions {
@@ -11,6 +12,7 @@ export interface WebServerOptions {
 	version: string;
 	frontendDirectory?: string;
 	authenticator?: HttpAuthenticator;
+	dashboardStore?: DashboardStore;
 	datapointApi?: {
 		list(query: DatapointQuery): Promise<DatapointListResponse>;
 		get(id: string): Promise<DatapointListItem | undefined>;
@@ -31,6 +33,7 @@ type LifecycleOperation = () => Promise<void>;
 type FileResult = 'served' | 'missing' | 'not-servable';
 
 class InvalidRequestError extends Error {}
+class PayloadTooLargeError extends Error {}
 
 export class NextuiWebServer {
 	private server: Server | undefined;
@@ -82,6 +85,18 @@ export class NextuiWebServer {
 		return new Promise((resolve, reject) => {
 			const server = createServer((request, response) => {
 				void this.handleRequest(request, response).catch(error => {
+					if (error instanceof DashboardConflictError) {
+						this.sendJson(response, 409, { error: 'Dashboard was modified by another browser' });
+						return;
+					}
+					if (error instanceof PayloadTooLargeError) {
+						this.sendJson(response, 413, { error: 'Request body too large' });
+						return;
+					}
+					if (error instanceof InvalidDashboardError) {
+						this.sendJson(response, 400, { error: 'Invalid dashboard document' });
+						return;
+					}
 					if (error instanceof InvalidRequestError) {
 						if (!response.headersSent) {
 							this.sendJson(response, 400, { error: 'Bad request' });
@@ -150,6 +165,10 @@ export class NextuiWebServer {
 			}
 		}
 		const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+		if (requestUrl.pathname === '/api/dashboard') {
+			await this.handleDashboardRequest(request, response);
+			return;
+		}
 		if (request.method !== 'GET' && request.method !== 'HEAD') {
 			this.sendJson(response, 405, { error: 'Method not allowed' });
 			return;
@@ -181,6 +200,67 @@ export class NextuiWebServer {
 		}
 
 		this.sendJson(response, 404, { error: 'Not found' });
+	}
+
+	private async handleDashboardRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+		// Dashboard metadata is not accessible without an authenticated NextUI session.
+		if (!this.options.authenticator || !this.options.dashboardStore) {
+			this.sendJson(response, 403, { error: 'Configure a NextUI access password to enable dashboard storage' });
+			return;
+		}
+		if (request.method === 'GET' || request.method === 'HEAD') {
+			this.sendJson(response, 200, await this.options.dashboardStore.get());
+			return;
+		}
+		if (request.method !== 'PUT') {
+			this.sendJson(response, 405, { error: 'Method not allowed' });
+			return;
+		}
+		// Basic credentials may be sent automatically by browsers. Block CSRF at the HTTP boundary.
+		const origin = request.headers.origin;
+		let sameOrigin = false;
+		try {
+			const parsed = new URL(origin ?? '');
+			sameOrigin =
+				(parsed.protocol === 'https:' || parsed.protocol === 'http:') && parsed.host === request.headers.host;
+		} catch {
+			// An absent, invalid or opaque origin is not a trusted write.
+		}
+		if (
+			!sameOrigin ||
+			request.headers['x-nextui-write'] !== '1' ||
+			request.headers['sec-fetch-site'] === 'cross-site'
+		) {
+			this.sendJson(response, 403, { error: 'Same-origin write required' });
+			return;
+		}
+		if (!/^application\/json(?:\s*;|$)/i.test(request.headers['content-type'] ?? '')) {
+			this.sendJson(response, 415, { error: 'Expected application/json' });
+			return;
+		}
+		const maxBytes = 24_000;
+		const declaredLength = Number(request.headers['content-length'] ?? 0);
+		if (declaredLength > maxBytes) {
+			this.sendJson(response, 413, { error: 'Request body too large' });
+			return;
+		}
+		const chunks: Buffer[] = [];
+		let bytes = 0;
+		for await (const chunk of request) {
+			const part = Buffer.from(chunk as Buffer);
+			bytes += part.length;
+			if (bytes > maxBytes) {
+				throw new PayloadTooLargeError();
+			}
+			chunks.push(part);
+		}
+		let body: unknown;
+		try {
+			body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown;
+		} catch {
+			throw new InvalidDashboardError('Malformed JSON.');
+		}
+		this.sendJson(response, 200, await this.options.dashboardStore.put(body));
 	}
 
 	private async handleExactDatapointRequest(requestUrl: URL, response: ServerResponse): Promise<void> {

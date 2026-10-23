@@ -69,48 +69,168 @@ function readSavedWidgets(): DashboardWidgetConfig[] {
 	}
 }
 
+interface DashboardDocument {
+	revision: number;
+	widgets: DashboardWidgetConfig[];
+}
+
+async function fetchDashboard(signal?: AbortSignal): Promise<DashboardDocument> {
+	const response = await fetch('/api/dashboard', { cache: 'no-store', signal });
+	if (!response.ok) {
+		throw new Error(
+			response.status === 403
+				? 'Dashboard-Speicherung benötigt ein NextUI-Zugangspasswort in den Instanzeinstellungen.'
+				: 'Dashboard konnte nicht vom ioBroker-Server geladen werden.',
+		);
+	}
+	return (await response.json()) as DashboardDocument;
+}
+
 export function DashboardWidgets(): JSX.Element {
-	const [widgets, setWidgets] = useState<DashboardWidgetConfig[]>(readSavedWidgets);
-	const [storageError, setStorageError] = useState(false);
+	const [document, setDocument] = useState<DashboardDocument>();
+	const [legacyWidgets, setLegacyWidgets] = useState<DashboardWidgetConfig[]>(readSavedWidgets);
+	const [error, setError] = useState<string>();
+	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
+
+	const load = async (signal?: AbortSignal): Promise<void> => {
+		setLoading(true);
+		try {
+			const result = await fetchDashboard(signal);
+			if (!signal?.aborted) {
+				setDocument(result);
+				setError(undefined);
+			}
+		} catch (reason) {
+			if (!signal?.aborted) {
+				setError((reason as Error).message);
+			}
+		} finally {
+			if (!signal?.aborted) {
+				setLoading(false);
+			}
+		}
+	};
 
 	useEffect(() => {
-		try {
-			window.localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets));
-			setStorageError(false);
-		} catch {
-			setStorageError(true);
-		}
-	}, [widgets]);
+		const controller = new AbortController();
+		void load(controller.signal);
+		return () => controller.abort();
+	}, []);
 
+	const save = async (widgets: DashboardWidgetConfig[], importing = false): Promise<void> => {
+		if (!document || saving) {
+			return;
+		}
+		setSaving(true);
+		setError(undefined);
+		try {
+			const response = await fetch('/api/dashboard', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json', 'X-NextUI-Write': '1' },
+				body: JSON.stringify({ expectedRevision: document.revision, widgets }),
+			});
+			if (!response.ok) {
+				throw new Error(
+					response.status === 409
+						? 'Das Dashboard wurde in einem anderen Browser verändert. Bitte neu laden und die Änderung erneut vornehmen.'
+						: 'Dashboard konnte nicht gespeichert werden. Bitte Verbindung und Anmeldung prüfen.',
+				);
+			}
+			setDocument((await response.json()) as DashboardDocument);
+			if (importing) {
+				try {
+					window.localStorage.removeItem(STORAGE_KEY);
+				} catch {
+					// Server copy already saved; local storage may be inaccessible.
+				}
+				setLegacyWidgets([]);
+			}
+		} catch (reason) {
+			setError((reason as Error).message);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const widgets = document?.widgets ?? [];
 	const addWidget = (datapoint: Datapoint, kind: WidgetKind, title: string): void => {
-		setWidgets(current =>
-			current.length >= MAX_WIDGETS
-				? current
-				: [
-						...current,
-						{
-							id: `widget-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-							datapointId: datapoint.id,
-							kind,
-							title: (title.trim() || datapoint.name).slice(0, 80),
-						},
-					],
-		);
+		if (widgets.length >= MAX_WIDGETS) {
+			return;
+		}
+		void save([
+			...widgets,
+			{
+				id: `widget-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+				datapointId: datapoint.id,
+				kind,
+				title: (title.trim() || datapoint.name).trim().slice(0, 80),
+			},
+		]);
 	};
 
 	return (
 		<section className="space-y-7">
-			<div className="flex flex-wrap items-start justify-between gap-4">
-				<div>
-					<p className="text-sm font-semibold text-sky-600 dark:text-sky-400">NextUI · Frühe Vorschau</p>
-					<h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Mein Dashboard</h2>
-					<p className="mt-3 max-w-3xl text-slate-600 dark:text-slate-300">
-						Verbinde deine ersten Kacheln mit echten ioBroker-Datenpunkten. Die Anzeige ist noch
-						schreibgeschützt.
-					</p>
-				</div>
+			<div>
+				<p className="text-sm font-semibold text-sky-600 dark:text-sky-400">NextUI · Frühe Vorschau</p>
+				<h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Mein Dashboard</h2>
+				<p className="mt-3 max-w-3xl text-slate-600 dark:text-slate-300">
+					Kacheln werden jetzt in der ioBroker-Instanz gespeichert und können auf mehreren Geräten angezeigt
+					werden.
+				</p>
 			</div>
-
+			<div className="flex flex-wrap items-center gap-3">
+				<button
+					type="button"
+					disabled={loading || saving}
+					onClick={() => void load()}
+					className="min-h-10 rounded-xl border border-slate-300 px-4 text-sm font-semibold disabled:opacity-50 dark:border-slate-700"
+				>
+					Dashboard neu laden
+				</button>
+				<p className="text-xs text-slate-500">
+					{widgets.length} von {MAX_WIDGETS} Kacheln · Werte alle 10 Sekunden
+				</p>
+			</div>
+			{loading && (
+				<p
+					role="status"
+					className="text-sm text-slate-500"
+				>
+					Dashboard wird geladen …
+				</p>
+			)}
+			{saving && (
+				<p
+					role="status"
+					className="text-sm text-slate-500"
+				>
+					Änderungen werden gespeichert …
+				</p>
+			)}
+			{error && (
+				<p
+					role="alert"
+					className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+				>
+					{error}
+				</p>
+			)}
+			{document && !loading && widgets.length === 0 && legacyWidgets.length > 0 && (
+				<Card className="space-y-3 hover:translate-y-0">
+					<p className="text-sm">
+						Es wurden {legacyWidgets.length} ältere, nur in diesem Browser gespeicherte Kacheln gefunden.
+					</p>
+					<button
+						type="button"
+						disabled={saving}
+						onClick={() => void save(legacyWidgets, true)}
+						className="min-h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold text-white disabled:opacity-50"
+					>
+						Browser-Kacheln in ioBroker übernehmen
+					</button>
+				</Card>
+			)}
 			<Card className="space-y-3 hover:translate-y-0">
 				<div className="flex items-center gap-2">
 					<Plus
@@ -121,43 +241,31 @@ export function DashboardWidgets(): JSX.Element {
 				</div>
 				<WidgetConfigurator
 					onAdd={addWidget}
-					disabled={widgets.length >= MAX_WIDGETS}
+					disabled={!document || loading || saving || widgets.length >= MAX_WIDGETS}
 				/>
 			</Card>
-			{storageError && (
-				<p
-					role="alert"
-					className="text-sm text-amber-700 dark:text-amber-300"
-				>
-					Die Kacheleinstellungen konnten nicht im Browser gespeichert werden.
-				</p>
-			)}
-			<p className="text-xs text-slate-500">
-				{widgets.length} von {MAX_WIDGETS} Kacheln · Konfiguration nur in diesem Browser gespeichert ·
-				Aktualisierung alle 10 Sekunden
-			</p>
-			{widgets.length === 0 ? (
-				<div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">
-					<Activity
-						className="mx-auto mb-3 text-sky-500"
-						size={26}
-					/>
-					<p className="font-semibold">Noch keine Kacheln angelegt</p>
-					<p className="mt-2 text-sm text-slate-500">
-						Suche oben einen freigegebenen Datenpunkt und wähle die Darstellung selbst aus.
-					</p>
-				</div>
-			) : (
-				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-					{widgets.map(widget => (
-						<DatapointWidget
-							key={widget.id}
-							config={widget}
-							onRemove={() => setWidgets(current => current.filter(item => item.id !== widget.id))}
+			{document &&
+				!loading &&
+				(widgets.length === 0 ? (
+					<div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">
+						<Activity
+							className="mx-auto mb-3 text-sky-500"
+							size={26}
 						/>
-					))}
-				</div>
-			)}
+						<p className="font-semibold">Noch keine Kacheln angelegt</p>
+						<p className="mt-2 text-sm text-slate-500">Suche oben einen freigegebenen Datenpunkt.</p>
+					</div>
+				) : (
+					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+						{widgets.map(widget => (
+							<DatapointWidget
+								key={widget.id}
+								config={widget}
+								onRemove={() => void save(widgets.filter(item => item.id !== widget.id))}
+							/>
+						))}
+					</div>
+				))}
 		</section>
 	);
 }
@@ -312,7 +420,7 @@ function WidgetConfigurator({
 				}}
 				className="min-h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				{disabled ? 'Maximale Anzahl erreicht' : 'Kachel hinzufügen'}
+				Kachel hinzufügen
 			</button>
 		</div>
 	);

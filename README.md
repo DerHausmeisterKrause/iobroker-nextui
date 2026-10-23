@@ -237,3 +237,33 @@ Die Widget-API ist ausschließlich für einen lokalen Entwicklungsaufbau gedacht
 Sie darf nur hinter einem vertraulichen HTTPS-Reverse-Proxy **mit aktivierter
 NextUI-Authentifizierung** genutzt werden. Die lokale Entwicklungsmodus-Allowlist
 bleibt weiterhin notwendig. Dies ersetzt noch keine individuellen Benutzerrechte.
+
+## Servergespeicherte Dashboard-Kacheln
+
+NextUI speichert die Kacheln der Übersichtsseite ab dieser Version pro
+**Adapterinstanz** in der ioBroker-Objektdatenbank unter dem eigenen Objekt
+`nextui.0.dashboard` (für weitere Instanzen entsprechend mit deren Namespace).
+Die Konfiguration enthält nur Widget-ID, Titel, Datenpunkt-ID und Darstellung,
+aber **keine** Passwörter, Tokens oder aktuellen Datenpunktwerte.
+
+Für die Nutzung muss ein NextUI-Zugangspasswort von mindestens 16 Zeichen
+in den Instanzeinstellungen gesetzt sein. Danach ist die Konfiguration über
+`GET /api/dashboard` lesbar und über `PUT /api/dashboard` bearbeitbar.
+Das Schreiben verlangt HTTP Basic Auth, eine gleichnamige Browser-Origin,
+`Content-Type: application/json` und den Header `X-NextUI-Write: 1`.
+Es gibt eine Begrenzung der Größe und der Kachelanzahl (12). Browser senden
+die zuvor gelesene `revision`; bei abweichender Version liefert die API 409,
+damit Änderungen aus mehreren Browsern nicht still überschrieben werden.
+Die Bedienoberfläche bietet einen manuellen Knopf zum Neuladen.
+
+Auf dem jeweiligen Browser vorhandene ältere LocalStorage-Kacheln werden
+**nicht automatisch** überschrieben oder übertragen. Nur wenn das
+serverseitige Dashboard leer ist, erscheint der Knopf
+**Browser-Kacheln in ioBroker übernehmen**. Erst nach erfolgreicher Übernahme
+werden die alten Browserdaten entfernt. Der Import wird nie automatisch
+ausgeführt.
+
+Die Datenpunktabfrage für Widgetwerte bleibt getrennt und erfordert weiterhin
+den lokalen Datenpunkt-Entwicklungsmodus und passende Allowlist. Die
+Serverablage ist momentan eine einzelne gemeinsame Übersichtsseite pro
+Instanz; Benutzerberechtigungen und Mehrseiten-Editor folgen später.

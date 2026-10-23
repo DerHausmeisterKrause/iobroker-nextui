@@ -1,10 +1,11 @@
-import { get as httpGet } from 'node:http';
+import { get as httpGet, request as httpRequest } from 'node:http';
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
+import { DashboardStore, type DashboardDocument } from './dashboard-store';
 
 describe('NextuiWebServer', () => {
 	it('starts, serves the page and health endpoint, then stops', async () => {
@@ -53,6 +54,84 @@ describe('NextuiWebServer', () => {
 			expect((await request(port, '/api/health', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/datapoints', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/datapoints/by-id?id=safe.0.state', validAuth)).statusCode).to.equal(404);
+		} finally {
+			await server.stop();
+		}
+	});
+
+	it('protects dashboard storage and rejects cross-origin writes and stale revisions', async () => {
+		let document: DashboardDocument | undefined;
+		const store = new DashboardStore({
+			read: () => Promise.resolve(document),
+			write: next => {
+				document = next;
+				return Promise.resolve();
+			},
+		});
+		const server = new NextuiWebServer({
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
+			authenticator: new HttpAuthenticator('safe-test-dashboard-password'),
+			dashboardStore: store,
+		});
+		await server.start();
+		try {
+			const port = server.getStatus().port;
+			const auth = `Basic ${Buffer.from('nextui:safe-test-dashboard-password').toString('base64')}`;
+			const widgets = [{ id: 'widget-one', title: 'Solar', kind: 'number', datapointId: 'safe.0.solar' }];
+			const body = { expectedRevision: 0, widgets };
+			expect((await request(port, '/api/dashboard')).statusCode).to.equal(401);
+			expect((await request(port, '/api/dashboard', auth)).statusCode).to.equal(200);
+			const unsafe = await writeDashboard(port, auth, body, { origin: 'https://evil.example' });
+			expect(unsafe.statusCode).to.equal(403);
+			const noMarker = await writeDashboard(port, auth, body, { 'x-nextui-write': '' });
+			expect(noMarker.statusCode).to.equal(403);
+			const saved = await writeDashboard(port, auth, body);
+			expect(saved.statusCode).to.equal(200);
+			expect(JSON.parse(saved.body).revision).to.equal(1);
+			expect((await writeDashboard(port, auth, body)).statusCode).to.equal(409);
+			expect(JSON.parse((await request(port, '/api/dashboard', auth)).body).widgets).to.deep.equal(widgets);
+			expect(
+				(
+					await writeDashboard(port, auth, {
+						expectedRevision: 1,
+						widgets: [{ ...widgets[0], kind: 'script' }],
+					})
+				).statusCode,
+			).to.equal(400);
+			expect(
+				(await writeDashboard(port, auth, { expectedRevision: 1, widgets }, {}, 'text/plain')).statusCode,
+			).to.equal(415);
+			expect(
+				(
+					await writeDashboard(
+						port,
+						auth,
+						{ expectedRevision: 1, widgets },
+						{},
+						'application/json',
+						'x'.repeat(25000),
+					)
+				).statusCode,
+			).to.equal(413);
+		} finally {
+			await server.stop();
+		}
+	});
+
+	it('never serves dashboard documents when no password is configured', async () => {
+		const server = new NextuiWebServer({
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
+			dashboardStore: new DashboardStore({ read: () => Promise.resolve(null), write: () => Promise.resolve() }),
+		});
+		await server.start();
+		try {
+			expect((await request(server.getStatus().port, '/api/dashboard')).statusCode).to.equal(403);
 		} finally {
 			await server.stop();
 		}
@@ -284,5 +363,43 @@ function request(
 			},
 		);
 		request.once('error', reject);
+	});
+}
+
+function writeDashboard(
+	port: number,
+	authorization: string,
+	body: unknown,
+	overrides: Record<string, string> = {},
+	contentType = 'application/json',
+	bodyOverride?: string,
+): Promise<{ statusCode?: number; body: string }> {
+	const raw = bodyOverride ?? JSON.stringify(body);
+	return new Promise((resolve, reject) => {
+		const req = httpRequest(
+			{
+				hostname: '127.0.0.1',
+				port,
+				path: '/api/dashboard',
+				method: 'PUT',
+				headers: {
+					Authorization: authorization,
+					Origin: `http://127.0.0.1:${port}`,
+					'X-NextUI-Write': '1',
+					'Content-Type': contentType,
+					'Content-Length': Buffer.byteLength(raw),
+					...overrides,
+				},
+			},
+			response => {
+				const chunks: Buffer[] = [];
+				response.on('data', chunk => chunks.push(Buffer.from(chunk)));
+				response.on('end', () =>
+					resolve({ statusCode: response.statusCode, body: Buffer.concat(chunks).toString('utf8') }),
+				);
+			},
+		);
+		req.on('error', reject);
+		req.end(raw);
 	});
 }
