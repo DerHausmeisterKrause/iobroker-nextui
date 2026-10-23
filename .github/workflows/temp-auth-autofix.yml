@@ -22,7 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Apply auto-fixable lint and formatting fixes
-        run: npx eslint -c eslint.config.mjs --fix src/http-auth.ts src/http-auth.test.ts src/main.ts src/web-server.ts src/web-server.test.ts
+        run: npx prettier --write src/http-auth.ts src/http-auth.test.ts src/main.ts src/web-server.ts src/web-server.test.ts
       - name: Commit autoformat
         run: |
           git config user.name "github-actions[bot]"
