@@ -102,3 +102,23 @@ served directly, extensionless browser routes fall back to `index.html`, and
 `/api/*` requests never fall back to the SPA. This keeps future adapter APIs
 separate from browser navigation and avoids exposing files outside the frontend
 build directory.
+
+## Dashboard persistence
+
+Each NextUI adapter instance owns exactly one versioned dashboard document
+in its ioBroker object database (`<namespace>.dashboard`, stored in the
+object's `native.dashboard`). The backend validates and strips untrusted
+fields before writing; no state values, credentials or arbitrary HTML are
+persisted. Dashboard writes are serialized inside the adapter and carry an
+expected revision for conflict detection.
+
+`GET /api/dashboard` and `PUT /api/dashboard` require NextUI's configured
+password; absent authentication disables these endpoints. Browser writes also
+require a same-origin request with `X-NextUI-Write: 1`, a JSON content type
+and a bounded body. The frontend loads its layout on opening and saves
+explicit add/remove operations. Previous browser-only layouts are offered
+for opt-in migration, never silently copied or replaced.
+
+This is a single shared instance dashboard rather than per-user ACL
+enforcement. Read/write datapoint access is **not** implied by saving
+a widget reference and continues to use the separate allowlisted API.
