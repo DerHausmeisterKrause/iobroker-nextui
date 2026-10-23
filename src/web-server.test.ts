@@ -46,9 +46,9 @@ describe('NextuiWebServer', () => {
 				expect(anonymous.statusCode).to.equal(401);
 				expect(anonymous.headers['www-authenticate']).to.contain('Basic realm="NextUI"');
 			}
-			const wrong = await request(port, '/api/health', 'Basic ' + Buffer.from('nextui:wrong').toString('base64'));
+			const wrong = await request(port, '/api/health', `Basic ${Buffer.from('nextui:wrong').toString('base64')}`);
 			expect(wrong.statusCode).to.equal(401);
-			const validAuth = 'Basic ' + Buffer.from('nextui:a-long-test-access-password').toString('base64');
+			const validAuth = `Basic ${Buffer.from('nextui:a-long-test-access-password').toString('base64')}`;
 			expect((await request(port, '/', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/health', validAuth)).statusCode).to.equal(200);
 			expect((await request(port, '/api/datapoints', validAuth)).statusCode).to.equal(200);
