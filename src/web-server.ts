@@ -165,7 +165,7 @@ export class NextuiWebServer {
 			return;
 		}
 		const id = requestUrl.searchParams.get('id');
-		if (!id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\\0')) {
+		if (!id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\0')) {
 			throw new InvalidRequestError('Invalid datapoint ID.');
 		}
 		const item = await this.options.datapointApi.get(id);
