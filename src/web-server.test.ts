@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 import { NextuiWebServer } from './web-server';
+import { HttpAuthenticator } from './http-auth';
 
 describe('NextuiWebServer', () => {
 	it('starts, serves the page and health endpoint, then stops', async () => {
@@ -22,6 +23,38 @@ describe('NextuiWebServer', () => {
 		await server.stop();
 		expect(server.getStatus().running).to.equal(false);
 		await expectConnectionError(port);
+	});
+
+	it('protects the entire UI, health endpoint and datapoint APIs when a password is configured', async () => {
+		const server = new NextuiWebServer({
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
+			authenticator: new HttpAuthenticator('a-long-test-access-password'),
+			datapointApiEnabled: true,
+			datapointApi: {
+				get: () => Promise.resolve(undefined),
+				list: () => Promise.resolve({ items: [], total: 0, offset: 0, limit: 25 }),
+			},
+		});
+		await server.start();
+		try {
+			const port = server.getStatus().port;
+			for (const path of ['/', '/api/health', '/api/datapoints', '/api/datapoints/by-id?id=safe.0.state']) {
+				const anonymous = await request(port, path);
+				expect(anonymous.statusCode).to.equal(401);
+				expect(anonymous.headers['www-authenticate']).to.contain('Basic realm="NextUI"');
+			}
+			const wrong = await request(port, '/api/health', 'Basic ' + Buffer.from('nextui:wrong').toString('base64'));
+			expect(wrong.statusCode).to.equal(401);
+			const validAuth = 'Basic ' + Buffer.from('nextui:a-long-test-access-password').toString('base64');
+			expect((await request(port, '/', validAuth)).statusCode).to.equal(200);
+			expect((await request(port, '/api/health', validAuth)).statusCode).to.equal(200);
+			expect((await request(port, '/api/datapoints', validAuth)).statusCode).to.equal(200);
+		} finally {
+			await server.stop();
+		}
 	});
 
 	it('keeps the datapoint API disabled unless development mode is explicitly enabled', async () => {
@@ -232,9 +265,10 @@ async function expectConnectionError(port: number): Promise<void> {
 function request(
 	port: number,
 	path: string,
+	authorization?: string,
 ): Promise<{ statusCode?: number; body: string; headers: Record<string, string | string[] | undefined> }> {
 	return new Promise((resolve, reject) => {
-		const request = httpGet({ hostname: '127.0.0.1', port, path }, response => {
+		const request = httpGet({ hostname: '127.0.0.1', port, path, headers: authorization ? { authorization } : {} }, response => {
 			const chunks: Buffer[] = [];
 			response.on('data', chunk => chunks.push(Buffer.from(chunk)));
 			response.on('end', () =>
