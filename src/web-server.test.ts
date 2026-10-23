@@ -46,7 +46,12 @@ describe('NextuiWebServer', () => {
 			version: '0.0.1',
 			datapointApiEnabled: true,
 			datapointApi: {
-				get: id => Promise.resolve(id === 'test.0.value' ? { id, name: 'Value', type: 'number', value: 1, readable: true, writable: false } : undefined),
+				get: id =>
+					Promise.resolve(
+						id === 'test.0.value'
+							? { id, name: 'Value', type: 'number', value: 1, readable: true, writable: false }
+							: undefined,
+					),
 				list: query =>
 					Promise.resolve({
 						items: [

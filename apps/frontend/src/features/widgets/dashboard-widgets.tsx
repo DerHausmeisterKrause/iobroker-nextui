@@ -105,29 +105,43 @@ export function DashboardWidgets(): JSX.Element {
 					<p className="text-sm font-semibold text-sky-600 dark:text-sky-400">NextUI · Frühe Vorschau</p>
 					<h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">Mein Dashboard</h2>
 					<p className="mt-3 max-w-3xl text-slate-600 dark:text-slate-300">
-						Verbinde deine ersten Kacheln mit echten ioBroker-Datenpunkten. Die Anzeige ist noch schreibgeschützt.
+						Verbinde deine ersten Kacheln mit echten ioBroker-Datenpunkten. Die Anzeige ist noch
+						schreibgeschützt.
 					</p>
 				</div>
 			</div>
 
 			<Card className="space-y-3 hover:translate-y-0">
 				<div className="flex items-center gap-2">
-					<Plus className="text-sky-600" size={19} />
+					<Plus
+						className="text-sky-600"
+						size={19}
+					/>
 					<h3 className="font-bold">Kachel hinzufügen</h3>
 				</div>
-				<WidgetConfigurator onAdd={addWidget} disabled={widgets.length >= MAX_WIDGETS} />
+				<WidgetConfigurator
+					onAdd={addWidget}
+					disabled={widgets.length >= MAX_WIDGETS}
+				/>
 			</Card>
 			{storageError && (
-				<p role="alert" className="text-sm text-amber-700 dark:text-amber-300">
+				<p
+					role="alert"
+					className="text-sm text-amber-700 dark:text-amber-300"
+				>
 					Die Kacheleinstellungen konnten nicht im Browser gespeichert werden.
 				</p>
 			)}
 			<p className="text-xs text-slate-500">
-				{widgets.length} von {MAX_WIDGETS} Kacheln · Konfiguration nur in diesem Browser gespeichert · Aktualisierung alle 10 Sekunden
+				{widgets.length} von {MAX_WIDGETS} Kacheln · Konfiguration nur in diesem Browser gespeichert ·
+				Aktualisierung alle 10 Sekunden
 			</p>
 			{widgets.length === 0 ? (
 				<div className="rounded-2xl border border-dashed border-slate-300 p-10 text-center dark:border-slate-700">
-					<Activity className="mx-auto mb-3 text-sky-500" size={26} />
+					<Activity
+						className="mx-auto mb-3 text-sky-500"
+						size={26}
+					/>
 					<p className="font-semibold">Noch keine Kacheln angelegt</p>
 					<p className="mt-2 text-sm text-slate-500">
 						Suche oben einen freigegebenen Datenpunkt und wähle die Darstellung selbst aus.
@@ -218,10 +232,27 @@ function WidgetConfigurator({
 					className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 outline-none focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950"
 				/>
 			</label>
-			{loading && <p role="status" className="text-sm text-slate-500">Datenpunkte suchen …</p>}
-			{error && <p role="alert" className="text-sm text-amber-700 dark:text-amber-300">{error}</p>}
+			{loading && (
+				<p
+					role="status"
+					className="text-sm text-slate-500"
+				>
+					Datenpunkte suchen …
+				</p>
+			)}
+			{error && (
+				<p
+					role="alert"
+					className="text-sm text-amber-700 dark:text-amber-300"
+				>
+					{error}
+				</p>
+			)}
 			{!error && !loading && items.length > 0 && (
-				<div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-1 dark:border-slate-700" aria-label="Datenpunkt auswählen">
+				<div
+					className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-1 dark:border-slate-700"
+					aria-label="Datenpunkt auswählen"
+				>
 					{items.map(item => (
 						<button
 							type="button"
@@ -229,15 +260,15 @@ function WidgetConfigurator({
 							onClick={() => setSelected(item)}
 							className={`block w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800 ${selected?.id === item.id ? 'bg-sky-50 dark:bg-sky-950' : ''}`}
 						>
-							<span className="block font-semibold">{item.name} ({item.type})</span>
+							<span className="block font-semibold">
+								{item.name} ({item.type})
+							</span>
 							<span className="block break-all font-mono text-slate-500">{item.id}</span>
 						</button>
 					))}
 				</div>
 			)}
-			{selected && (
-				<p className="break-all text-xs text-sky-700 dark:text-sky-300">Ausgewählt: {selected.id}</p>
-			)}
+			{selected && <p className="break-all text-xs text-sky-700 dark:text-sky-300">Ausgewählt: {selected.id}</p>}
 			<div className="grid gap-3 sm:grid-cols-2">
 				<label className="text-sm font-semibold">
 					Darstellung
@@ -247,7 +278,12 @@ function WidgetConfigurator({
 						className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950"
 					>
 						{widgetRegistry.list().map(definition => (
-							<option key={definition.id} value={definition.id}>{definition.name}</option>
+							<option
+								key={definition.id}
+								value={definition.id}
+							>
+								{definition.name}
+							</option>
 						))}
 					</select>
 				</label>
@@ -293,7 +329,9 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 			activeController?.abort();
 			const controller = new AbortController();
 			activeController = controller;
-			void fetch(`/api/datapoints/by-id?id=${encodeURIComponent(config.datapointId)}`, { signal: controller.signal })
+			void fetch(`/api/datapoints/by-id?id=${encodeURIComponent(config.datapointId)}`, {
+				signal: controller.signal,
+			})
 				.then(async response => {
 					if (!response.ok) {
 						throw new Error(
@@ -331,11 +369,19 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 	}, [config.datapointId]);
 
 	return (
-		<Card className="min-w-0 hover:translate-y-0" role="group" aria-label={config.title}>
+		<Card
+			className="min-w-0 hover:translate-y-0"
+			role="group"
+			aria-label={config.title}
+		>
 			<div className="flex items-start justify-between gap-3">
 				<h3 className="min-w-0 break-words font-bold">{config.title}</h3>
 				<div className="flex items-center gap-2">
-					<RefreshCw size={15} className="text-slate-400" aria-hidden="true" />
+					<RefreshCw
+						size={15}
+						className="text-slate-400"
+						aria-hidden="true"
+					/>
 					<button
 						type="button"
 						onClick={onRemove}
@@ -346,15 +392,36 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 					</button>
 				</div>
 			</div>
-			<p className="mt-1 truncate font-mono text-xs text-slate-500" title={config.datapointId}>{config.datapointId}</p>
+			<p
+				className="mt-1 truncate font-mono text-xs text-slate-500"
+				title={config.datapointId}
+			>
+				{config.datapointId}
+			</p>
 			{loading ? (
-				<p role="status" className="mt-6 text-sm text-slate-500">Wert wird geladen …</p>
+				<p
+					role="status"
+					className="mt-6 text-sm text-slate-500"
+				>
+					Wert wird geladen …
+				</p>
 			) : error ? (
-				<p role="alert" className="mt-6 text-sm text-amber-700 dark:text-amber-300">{error}</p>
+				<p
+					role="alert"
+					className="mt-6 text-sm text-amber-700 dark:text-amber-300"
+				>
+					{error}
+				</p>
 			) : (
 				<div className="mt-6">
-					<p className="break-words text-3xl font-bold tracking-tight">{formatWidgetValue(config.kind, item)}</p>
-					{item?.ts && <p className="mt-2 text-xs text-slate-500">Stand: {new Date(item.ts).toLocaleString('de-DE')}</p>}
+					<p className="break-words text-3xl font-bold tracking-tight">
+						{formatWidgetValue(config.kind, item)}
+					</p>
+					{item?.ts && (
+						<p className="mt-2 text-xs text-slate-500">
+							Stand: {new Date(item.ts).toLocaleString('de-DE')}
+						</p>
+					)}
 				</div>
 			)}
 		</Card>

@@ -25,7 +25,8 @@ describe('read-only dashboard widgets', () => {
 		const mockFetch = vi.fn().mockImplementation((url: string) =>
 			Promise.resolve({
 				ok: true,
-				json: () => Promise.resolve(url.includes('/by-id?') ? { item: datapoint } : { items: [datapoint], total: 1 }),
+				json: () =>
+					Promise.resolve(url.includes('/by-id?') ? { item: datapoint } : { items: [datapoint], total: 1 }),
 			}),
 		);
 		vi.stubGlobal('fetch', mockFetch);
@@ -34,7 +35,10 @@ describe('read-only dashboard widgets', () => {
 		await user.click(await screen.findByRole('button', { name: /Kitchen temperature/ }));
 		await user.click(screen.getByRole('button', { name: 'Kachel hinzufügen' }));
 		expect(await screen.findByText('21,5 °C')).toBeInTheDocument();
-		expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/api/datapoints/by-id?id=safe.0.temperature'), expect.anything());
+		expect(mockFetch).toHaveBeenCalledWith(
+			expect.stringContaining('/api/datapoints/by-id?id=safe.0.temperature'),
+			expect.anything(),
+		);
 		const widget = screen.getByRole('group', { name: 'Kitchen temperature' });
 		expect(within(widget).getByText('21,5 °C')).toBeInTheDocument();
 		expect(window.localStorage.getItem('nextui-readonly-widgets-v1')).toContain('safe.0.temperature');
