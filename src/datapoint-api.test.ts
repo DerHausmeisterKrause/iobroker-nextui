@@ -101,6 +101,25 @@ describe('DatapointApi', () => {
 		expect(objectRequests).to.equal(2);
 	});
 
+	it('fetches only an exact, readable and explicitly allowlisted datapoint for widgets', async () => {
+		const requestedStates: string[][] = [];
+		const api = new DatapointApi(
+			{
+				getForeignObjectsAsync: () => Promise.resolve(objects()),
+				getForeignStatesAsync: ids => {
+					requestedStates.push(ids);
+					return Promise.resolve(pickStates(ids));
+				},
+			},
+			['safe.0.*'],
+		);
+		expect((await api.get('safe.0.temperature'))?.value).to.equal(21.5);
+		expect(await api.get('safe.0.private')).to.equal(undefined);
+		expect(await api.get('other.0.secret')).to.equal(undefined);
+		expect(await api.get('safe.0.unknown')).to.equal(undefined);
+		expect(requestedStates).to.deep.equal([['safe.0.temperature']]);
+	});
+
 	it('parses comma and line separated allowlist entries', () => {
 		expect(parseAllowedPatterns('safe.0.*,\nsafe.1.*\n safe.0.* ')).to.deep.equal(['safe.0.*', 'safe.1.*']);
 	});
