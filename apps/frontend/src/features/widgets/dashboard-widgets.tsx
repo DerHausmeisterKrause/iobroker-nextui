@@ -420,7 +420,7 @@ function WidgetConfigurator({
 				}}
 				className="min-h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				{disabled ? 'Maximale Anzahl erreicht' : 'Kachel hinzufügen'}
+				Kachel hinzufügen
 			</button>
 		</div>
 	);
