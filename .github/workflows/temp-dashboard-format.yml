@@ -1,0 +1,31 @@
+name: Temporary dashboard formatting
+on:
+  push:
+    branches: [feat/nextui-server-dashboard]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/nextui-server-dashboard
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Format new dashboard files
+        run: |
+          npx prettier --write src/dashboard-store.ts src/dashboard-store.test.ts src/main.ts src/web-server.ts src/web-server.test.ts apps/frontend/src/features/widgets/dashboard-widgets.tsx apps/frontend/src/features/widgets/dashboard-widgets.test.tsx
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/dashboard-store.ts src/dashboard-store.test.ts src/main.ts src/web-server.ts src/web-server.test.ts apps/frontend/src/features/widgets/dashboard-widgets.tsx apps/frontend/src/features/widgets/dashboard-widgets.test.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format dashboard persistence feature"
+            git push origin HEAD:feat/nextui-server-dashboard
+          fi
