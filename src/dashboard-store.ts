@@ -47,7 +47,7 @@ export function validateWidgets(value: unknown): SavedWidget[] {
 				v.length === 0 ||
 				v.length > limit ||
 				v.trim() !== v ||
-				/[\u0000-\u001f\u007f]/.test(v)
+				Array.from(v).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
 			) {
 				throw new InvalidDashboardError(`Invalid widget ${key}.`);
 			}
