@@ -139,6 +139,9 @@ describe('NextuiWebServer', () => {
 			const asset = await request(port, assetPath!);
 			expect(asset.statusCode).to.equal(200);
 			expect(asset.headers['content-type']).to.contain('text/javascript');
+			const icon = await request(port, '/nextui-icon.png');
+			expect(icon.statusCode).to.equal(200);
+			expect(icon.headers['content-type']).to.contain('image/png');
 		} finally {
 			await server.stop();
 		}
