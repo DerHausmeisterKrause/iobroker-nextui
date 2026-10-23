@@ -14,13 +14,15 @@
 - [x] Datapoint browser (read-only local development mode)
 - Real-time subscriptions
 - Read and write operations
-- Binding engine
+- [x] First read-only per-datapoint binding (development mode; polling)
+- [ ] Shared realtime binding engine (server-side subscriptions and permissions)
 
 ## Phase 3 - Visualization
 - Dashboard pages
 - Layout engine
 - Widget registry
-- Basic widgets
+- [x] First read-only number, status and text widgets
+- [ ] Extended widgets and cross-device persisted configuration
 - Responsive interface
 
 ## Phase 4 - Editor
