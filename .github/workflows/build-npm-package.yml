@@ -1,0 +1,69 @@
+name: Build installable NextUI package
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nextui-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  npm-package:
+    name: Build and package (Node 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Build React frontend and ioBroker adapter
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and package tests
+        run: npm test
+
+      - name: Create installable npm tarball
+        shell: bash
+        run: |
+          mkdir -p dist
+          npm pack --pack-destination dist
+          package_file="$(find dist -maxdepth 1 -type f -name 'iobroker.nextui-*.tgz' -print -quit)"
+          test -n "$package_file"
+          tar -tzf "$package_file" | grep -qx 'package/io-package.json'
+          tar -tzf "$package_file" | grep -qx 'package/build/main.js'
+          tar -tzf "$package_file" | grep -qx 'package/www/frontend/index.html'
+          tar -tzf "$package_file" | grep -q '^package/www/frontend/assets/.*\\.js$'
+          echo "Built package: $package_file"
+          ls -lh "$package_file"
+
+      - name: Upload installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextui-npm-package-${{ github.run_number }}
+          path: dist/*.tgz
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
