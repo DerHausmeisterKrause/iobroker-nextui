@@ -19,7 +19,8 @@
 - [ ] Shared realtime binding engine (server-side subscriptions and permissions)
 
 ## Phase 3 - Visualization
-- Dashboard pages
+- [x] Single server-persisted overview dashboard (instance-local, versioned)
+- [ ] Multiple editable dashboard pages and per-user ACL
 - Layout engine
 - Widget registry
 - [x] First read-only number, status and text widgets
