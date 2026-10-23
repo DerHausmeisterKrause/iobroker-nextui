@@ -1,4 +1,4 @@
-import { Cpu, Database, DoorOpen, House, Menu, Moon, PanelsTopLeft, Settings, Sun, X, Zap } from 'lucide-react';
+import { Cpu, Database, DoorOpen, House, Menu, Moon, Settings, Sun, X, Zap } from 'lucide-react';
 import { type PropsWithChildren, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTheme } from './theme-provider';
@@ -88,9 +88,12 @@ export function AppShell({ children }: PropsWithChildren): JSX.Element {
 function Brand(): JSX.Element {
 	return (
 		<div className="mb-8 flex items-center gap-3">
-			<div className="grid size-10 place-items-center rounded-xl bg-sky-600 text-white shadow-lg shadow-sky-600/25">
-				<PanelsTopLeft size={20} />
-			</div>
+			<img
+				src="/nextui-icon.png"
+				alt=""
+				aria-hidden="true"
+				className="size-10 rounded-xl shadow-lg shadow-sky-600/15"
+			/>
 			<div>
 				<div className="font-bold tracking-tight">NextUI</div>
 				<div className="text-xs text-slate-500 dark:text-slate-400">ioBroker Visualisierung</div>
