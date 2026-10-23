@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
-import { HttpAuthenticator } from './http-auth';
+import type { HttpAuthenticator } from './http-auth';
 import type { DatapointListItem, DatapointListResponse, DatapointQuery } from './datapoint-api';
 
 export interface WebServerOptions {
