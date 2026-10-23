@@ -163,3 +163,25 @@ lokale Prozesse sowie Reverse-Proxies oder Tunnel können Anfragen weiterleiten.
 Der Entwicklungsmodus darf deshalb nicht über einen Proxy veröffentlicht
 werden. Für LAN-Zugriff oder den Produktionseinsatz sind zuerst serverseitige
 Authentifizierung und Berechtigungen erforderlich.
+
+## Erste Widgets (lokale Entwicklung)
+
+Die Übersichtsseite erlaubt jetzt das Hinzufügen schreibgeschützter Zahlen-, Status-
+und Text-Kacheln. Zuerst muss der Datenpunkt-Entwicklungsmodus aktiviert, die
+**Bind-Adresse auf 127.0.0.1** belassen und ein explizites Datenpunkt-Muster
+erlaubt sein. Über den SSH-Tunnel kann die Oberfläche im Browser geöffnet
+werden. In der Übersicht einen freigegebenen Datenpunkt suchen, auswählen,
+Darstellung wählen und die Kachel hinzufügen.
+
+Für einzelne Widgetwerte nutzt NextUI `GET /api/datapoints/by-id?id=...`.
+Der Endpunkt prüft dieselbe Allowlist und `common.read` wie der Browser.
+Widgets aktualisieren sich vorerst alle 10 Sekunden; die Widget-Konfiguration
+wird **nur im lokalen Browser-Speicher** gespeichert und enthält ausschließlich
+Titel, Darstellung und Datenpunkt-ID (keine Zustandswerte). Sie wird nicht mit
+anderen Geräten oder Benutzern synchronisiert. Eine spätere serverseitige,
+berechtigungsgesicherte Visualisierungskonfiguration und Push-Abonnements sind
+noch nicht implementiert. Noch **keine Schreibbefehle**.
+
+Die Widget-API ist ausschließlich für einen lokalen Entwicklungsaufbau gedacht.
+Sie darf nicht ohne echte Authentifizierung per LAN-Bindung oder Reverse Proxy
+bereitgestellt werden.
