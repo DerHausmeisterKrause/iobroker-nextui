@@ -1,0 +1,34 @@
+name: Temporary NextUI auth autofix
+on:
+  push:
+    branches:
+      - feat/nextui-http-auth-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.repository == 'DerHausmeisterKrause/iobroker-nextui'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/nextui-http-auth-foundation
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply auto-fixable lint and formatting fixes
+        run: npx eslint -c eslint.config.mjs --fix src/http-auth.ts src/http-auth.test.ts src/main.ts src/web-server.ts src/web-server.test.ts
+      - name: Commit autoformat
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/http-auth.ts src/http-auth.test.ts src/main.ts src/web-server.ts src/web-server.test.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format auth implementation"
+            git push origin HEAD:feat/nextui-http-auth-foundation
+          fi
