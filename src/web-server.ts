@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
-import type { DatapointListResponse, DatapointQuery } from './datapoint-api';
+import type { DatapointListItem, DatapointListResponse, DatapointQuery } from './datapoint-api';
 
 export interface WebServerOptions {
 	port: number;
@@ -11,6 +11,7 @@ export interface WebServerOptions {
 	frontendDirectory?: string;
 	datapointApi?: {
 		list(query: DatapointQuery): Promise<DatapointListResponse>;
+		get(id: string): Promise<DatapointListItem | undefined>;
 	};
 	datapointApiEnabled?: boolean;
 	onError?: (error: Error) => void;
@@ -134,6 +135,10 @@ export class NextuiWebServer {
 			this.sendJson(response, 200, { status: 'ok', server: this.getStatus() });
 			return;
 		}
+		if (requestUrl.pathname === '/api/datapoints/by-id') {
+			await this.handleExactDatapointRequest(requestUrl, response);
+			return;
+		}
 		if (requestUrl.pathname === '/api/datapoints') {
 			await this.handleDatapointRequest(requestUrl, response);
 			return;
@@ -152,6 +157,23 @@ export class NextuiWebServer {
 		}
 
 		this.sendJson(response, 404, { error: 'Not found' });
+	}
+
+	private async handleExactDatapointRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
+		if (!this.options.datapointApiEnabled || !this.options.datapointApi) {
+			this.sendJson(response, 403, { error: 'Datapoint API is disabled' });
+			return;
+		}
+		const id = requestUrl.searchParams.get('id');
+		if (!id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\\0')) {
+			throw new InvalidRequestError('Invalid datapoint ID.');
+		}
+		const item = await this.options.datapointApi.get(id);
+		if (!item) {
+			this.sendJson(response, 404, { error: 'Datapoint not found' });
+			return;
+		}
+		this.sendJson(response, 200, { item });
 	}
 
 	private async handleDatapointRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
