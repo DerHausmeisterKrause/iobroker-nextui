@@ -80,12 +80,6 @@
 			{
 				"admin": ">=7.0.23"
 			}
-		],
-		"encryptedNative": [
-			"uiPassword"
-		],
-		"protectedNative": [
-			"uiPassword"
 		]
 	},
 	"native": {
@@ -96,5 +90,11 @@
 		"uiPassword": ""
 	},
 	"objects": [],
-	"instanceObjects": []
+	"instanceObjects": [],
+	"encryptedNative": [
+		"uiPassword"
+	],
+	"protectedNative": [
+		"uiPassword"
+	]
 }
