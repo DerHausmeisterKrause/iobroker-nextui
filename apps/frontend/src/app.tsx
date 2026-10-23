@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/app-shell';
 import { Card } from './components/ui/card';
 import { DatapointBrowser } from './features/datapoints/datapoint-browser';
+import { DashboardWidgets } from './features/widgets/dashboard-widgets';
 
 const pages = {
 	raeume: {
@@ -62,37 +63,7 @@ export function App(): JSX.Element {
 }
 
 function Overview(): JSX.Element {
-	return (
-		<section className="space-y-7">
-			<div>
-				<p className="text-sm font-semibold text-sky-600 dark:text-sky-400">Willkommen bei NextUI</p>
-				<h2 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-					Deine Visualisierung, frei konfigurierbar.
-				</h2>
-				<p className="mt-3 max-w-2xl text-slate-600 dark:text-slate-300">
-					Dieses Grundgerüst trennt Navigation, Layout und künftige Widgets. Noch werden keine ioBroker-Daten
-					dargestellt.
-				</p>
-			</div>
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-				<InfoCard
-					title="Widget Registry"
-					description="Bereit für konfigurierbare, adapterunabhängige Widgets."
-					icon={<Blocks size={22} />}
-				/>
-				<InfoCard
-					title="Sichere Anbindung"
-					description="Status- und spätere Datenzugriffe bleiben über die Adapter-API gekapselt."
-					icon={<Activity size={22} />}
-				/>
-				<InfoCard
-					title="Responsive Layouts"
-					description="Navigation und Inhalte passen sich Touchscreens und großen Displays an."
-					icon={<LayoutDashboard size={22} />}
-				/>
-			</div>
-		</section>
-	);
+	return <DashboardWidgets />;
 }
 
 function Placeholder({
@@ -119,25 +90,5 @@ function Placeholder({
 				<p className="mt-2 leading-6 text-slate-600 dark:text-slate-300">{description}</p>
 			</Card>
 		</section>
-	);
-}
-
-function InfoCard({
-	title,
-	description,
-	icon,
-}: {
-	title: string;
-	description: string;
-	icon: JSX.Element;
-}): JSX.Element {
-	return (
-		<Card>
-			<div className="mb-5 inline-flex rounded-xl bg-sky-50 p-3 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
-				{icon}
-			</div>
-			<h3 className="font-bold">{title}</h3>
-			<p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{description}</p>
-		</Card>
 	);
 }
