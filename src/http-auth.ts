@@ -20,7 +20,10 @@ export class HttpAuthenticator {
 	private readonly expectedDigest: Buffer;
 	private readonly failures = new Map<string, FailureRecord>();
 
-	public constructor(password: string, private readonly now: () => number = Date.now) {
+	public constructor(
+		password: string,
+		private readonly now: () => number = Date.now,
+	) {
 		if (password.length < 16) {
 			throw new Error('Das NextUI-Zugangspasswort muss mindestens 16 Zeichen lang sein.');
 		}

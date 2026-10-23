@@ -269,17 +269,20 @@ function request(
 	authorization?: string,
 ): Promise<{ statusCode?: number; body: string; headers: Record<string, string | string[] | undefined> }> {
 	return new Promise((resolve, reject) => {
-		const request = httpGet({ hostname: '127.0.0.1', port, path, headers: authorization ? { authorization } : {} }, response => {
-			const chunks: Buffer[] = [];
-			response.on('data', chunk => chunks.push(Buffer.from(chunk)));
-			response.on('end', () =>
-				resolve({
-					statusCode: response.statusCode,
-					body: Buffer.concat(chunks).toString('utf8'),
-					headers: response.headers,
-				}),
-			);
-		});
+		const request = httpGet(
+			{ hostname: '127.0.0.1', port, path, headers: authorization ? { authorization } : {} },
+			response => {
+				const chunks: Buffer[] = [];
+				response.on('data', chunk => chunks.push(Buffer.from(chunk)));
+				response.on('end', () =>
+					resolve({
+						statusCode: response.statusCode,
+						body: Buffer.concat(chunks).toString('utf8'),
+						headers: response.headers,
+					}),
+				);
+			},
+		);
 		request.once('error', reject);
 	});
 }

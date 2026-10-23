@@ -25,7 +25,8 @@ class Nextui extends utils.Adapter {
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
 		if (!isLoopbackAddress(bindAddress)) {
-			const message = 'NextUI verweigert derzeit die unverschlüsselte LAN-Bindung. Bitte Loopback und einen HTTPS-Reverse-Proxy verwenden.';
+			const message =
+				'NextUI verweigert derzeit die unverschlüsselte LAN-Bindung. Bitte Loopback und einen HTTPS-Reverse-Proxy verwenden.';
 			this.log.error(message);
 			this.terminate(message, 1);
 			return;
@@ -42,7 +43,9 @@ class Nextui extends utils.Adapter {
 				return;
 			}
 		} else {
-			this.log.warn('NextUI läuft ohne Passwortschutz. Nur über lokalen SSH-Tunnel verwenden; nicht öffentlich weiterleiten.');
+			this.log.warn(
+				'NextUI läuft ohne Passwortschutz. Nur über lokalen SSH-Tunnel verwenden; nicht öffentlich weiterleiten.',
+			);
 		}
 		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
 		const datapointApiEnabled =

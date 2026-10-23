@@ -128,7 +128,10 @@ export class NextuiWebServer {
 
 	private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
 		if (this.options.authenticator) {
-			const result = this.options.authenticator.verify(request.headers.authorization, request.socket.remoteAddress);
+			const result = this.options.authenticator.verify(
+				request.headers.authorization,
+				request.socket.remoteAddress,
+			);
 			if (!result.allowed) {
 				const headers: Record<string, string> = {
 					'Cache-Control': 'no-store',
@@ -140,7 +143,9 @@ export class NextuiWebServer {
 					headers['Retry-After'] = String(result.retryAfterSeconds);
 				}
 				response.writeHead(result.retryAfterSeconds ? 429 : 401, headers);
-				response.end(request.method === 'HEAD' ? undefined : JSON.stringify({ error: 'Authentication required' }));
+				response.end(
+					request.method === 'HEAD' ? undefined : JSON.stringify({ error: 'Authentication required' }),
+				);
 				return;
 			}
 		}
