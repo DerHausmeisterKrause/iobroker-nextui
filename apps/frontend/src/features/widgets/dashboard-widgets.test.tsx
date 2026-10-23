@@ -6,7 +6,7 @@ import { DashboardWidgets, formatWidgetValue, parseStoredWidgets } from './dashb
 const datapoint = {
 	id: 'safe.0.temperature',
 	name: 'Kitchen temperature',
-	type: 'number',
+	type: 'number' as const,
 	value: 21.5,
 	unit: '°C',
 	ts: 123,
