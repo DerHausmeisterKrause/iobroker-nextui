@@ -28,6 +28,8 @@ describe('NextuiWebServer', () => {
 		const disabled = createServer();
 		await disabled.start();
 		try {
+			const valueResponse = await request(disabled.getStatus().port, '/api/datapoints/by-id?id=test.0.value');
+			expect(valueResponse.statusCode).to.equal(403);
 			const response = await request(disabled.getStatus().port, '/api/datapoints');
 			expect(response.statusCode).to.equal(403);
 			expect(response.body).to.equal('{"error":"Datapoint API is disabled"}');
@@ -44,6 +46,12 @@ describe('NextuiWebServer', () => {
 			version: '0.0.1',
 			datapointApiEnabled: true,
 			datapointApi: {
+				get: id =>
+					Promise.resolve(
+						id === 'test.0.value'
+							? { id, name: 'Value', type: 'number', value: 1, readable: true, writable: false }
+							: undefined,
+					),
 				list: query =>
 					Promise.resolve({
 						items: [
@@ -70,6 +78,13 @@ describe('NextuiWebServer', () => {
 			);
 			expect(response.statusCode).to.equal(200);
 			expect(JSON.parse(response.body)).to.deep.include({ total: 1, limit: 10 });
+			const exact = await request(server.getStatus().port, '/api/datapoints/by-id?id=test.0.value');
+			expect(exact.statusCode).to.equal(200);
+			expect(JSON.parse(exact.body).item.id).to.equal('test.0.value');
+			const missing = await request(server.getStatus().port, '/api/datapoints/by-id?id=test.0.other');
+			expect(missing.statusCode).to.equal(404);
+			const badId = await request(server.getStatus().port, '/api/datapoints/by-id?id=*');
+			expect(badId.statusCode).to.equal(400);
 			const invalid = await request(server.getStatus().port, '/api/datapoints?offset=-1');
 			expect(invalid.statusCode).to.equal(400);
 		} finally {

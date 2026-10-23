@@ -1,11 +1,13 @@
+export type WidgetKind = 'number' | 'boolean' | 'text';
+
 export interface WidgetDefinition {
-	id: string;
+	id: WidgetKind;
 	name: string;
 	description: string;
 }
 
 export class WidgetRegistry {
-	private readonly definitions = new Map<string, WidgetDefinition>();
+	private readonly definitions = new Map<WidgetKind, WidgetDefinition>();
 
 	public register(definition: WidgetDefinition): void {
 		this.definitions.set(definition.id, definition);
@@ -17,3 +19,7 @@ export class WidgetRegistry {
 }
 
 export const widgetRegistry = new WidgetRegistry();
+
+widgetRegistry.register({ id: 'number', name: 'Zahlenwert', description: 'Numerischer Wert mit Einheit' });
+widgetRegistry.register({ id: 'boolean', name: 'Status', description: 'Ein-/Aus-Anzeige für Boolean-Datenpunkte' });
+widgetRegistry.register({ id: 'text', name: 'Textwert', description: 'Textanzeige für String-Datenpunkte' });

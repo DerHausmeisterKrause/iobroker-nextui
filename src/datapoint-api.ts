@@ -72,6 +72,17 @@ export class DatapointApi {
 		};
 	}
 
+	/** Fetches exactly one allowlisted, readable state object for a widget. */
+	public async get(id: string): Promise<DatapointListItem | undefined> {
+		await this.ensureObjectIndex();
+		const object = this.objects?.[id];
+		if (!object || !this.isAllowed(id) || object.common.read === false || !getDeclaredType(object.common.type)) {
+			return undefined;
+		}
+		await this.ensureStates([id]);
+		return this.toListItem(id, object, this.states.get(id)?.state);
+	}
+
 	/** Accepts a future state subscription update without triggering a read. */
 	public updateState(id: string, state: ioBroker.State | null): void {
 		if (this.isAllowed(id)) {
