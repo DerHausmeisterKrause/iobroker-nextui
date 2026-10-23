@@ -25,7 +25,8 @@
 			"sm": 12,
 			"md": 6,
 			"lg": 4,
-			"xl": 4
+			"xl": 4,
+			"help": "127.0.0.1: nur direkt auf dem ioBroker-Host oder per SSH-Tunnel erreichbar. 0.0.0.0: Oberfläche im LAN ohne Anmeldung erreichbar; Datenpunkt-API bleibt deaktiviert. Nicht ins Internet freigeben."
 		},
 		"datapointApiDevelopmentMode": {
 			"type": "checkbox",

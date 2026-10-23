@@ -360,6 +360,7 @@ function getContentType(filePath: string): string {
 		'.ico': 'image/x-icon',
 		'.js': 'text/javascript; charset=utf-8',
 		'.json': 'application/json; charset=utf-8',
+		'.png': 'image/png',
 		'.svg': 'image/svg+xml',
 		'.woff2': 'font/woff2',
 	};

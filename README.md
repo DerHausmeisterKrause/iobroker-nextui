@@ -98,6 +98,47 @@ npm run lint
 npm test
 ```
 
+## Erste Inbetriebnahme / Weboberfläche öffnen
+
+Nach Installation des aus GitHub Actions geladenen `.tgz`-Pakets muss eine
+Adapterinstanz (z. B. `nextui.0`) angelegt und gestartet sein. Die Webseite
+wird vom **eigenen** HTTP-Server des NextUI-Adapters ausgeliefert, nicht
+innerhalb der ioBroker-Admin-Oberfläche.
+
+Standardmäßig läuft NextUI auf **127.0.0.1:8090** auf dem ioBroker-Host.
+Für den ersten Test auf diesem Host:
+
+```bash
+curl -i http://127.0.0.1:8090/api/health
+curl -I http://127.0.0.1:8090/
+ss -lntp | grep ':8090'
+```
+
+Zeigt `/api/health` den HTTP-Status 200 und `status: ok`, ist der
+NextUI-Webserver erreichbar. Für die Anzeige im Browser auf einem **anderen**
+Computer ist ein SSH-Tunnel die sicherere Lösung:
+
+```bash
+ssh -N -L 8090:127.0.0.1:8090 USER@IOBROKER-IP
+```
+
+Anschließend im lokalen Browser `http://127.0.0.1:8090/` öffnen. Die
+Datenpunkt-Ansicht liegt unter `http://127.0.0.1:8090/datenpunkte`.
+
+Für eine **reine UI-Demonstration** in einem vertrauenswürdigen lokalen Netz
+kann die Bind-Adresse in den Instanzeinstellungen explizit auf `0.0.0.0`
+gesetzt werden. Danach ist die Oberfläche (ohne Anmeldung!) unter
+`http://IOBROKER-IP:8090/` erreichbar, sofern Host-Firewall und Netz dies
+zulassen. Dabei wird die Datenpunkt-API absichtlich deaktiviert, auch wenn
+der Entwicklungsmodus in den Einstellungen aktiviert ist. Nicht ins Internet
+oder über Portweiterleitungen freigeben. Bei der produktiven Verwendung
+fehlen noch Authentifizierung und Berechtigungen.
+
+Bei `Connection refused` den Adapterstatus, den Adapter-Log, Portkonflikte
+und den Listen-Socket kontrollieren. Bei `403` auf `/api/datapoints`
+den ausdrücklich lokalen Entwicklungsmodus sowie die erlaubten ID-Muster
+prüfen. Der Frontend-Einstieg `/` braucht diesen Modus nicht.
+
 ## Datenpunktbrowser (lokale Entwicklung)
 
 Der Bereich **Datenpunkte** im Frontend zeigt eine schreibgeschützte Suche über
