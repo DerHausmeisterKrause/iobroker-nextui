@@ -1,0 +1,31 @@
+name: Temporary NextUI editor formatter
+on:
+  push:
+    branches: [feat/nextui-editor-and-datapoint-diagnostics]
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/nextui-editor-and-datapoint-diagnostics
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Format edited files
+        run: |
+          npx prettier --write src/main.ts src/web-server.ts src/dashboard-store.ts src/dashboard-store.test.ts apps/frontend/src/features/widgets/dashboard-widgets.tsx apps/frontend/src/features/widgets/dashboard-editor.tsx apps/frontend/src/features/widgets/dashboard-editor.test.tsx apps/frontend/src/features/datapoints/datapoint-browser.tsx apps/frontend/src/features/datapoints/datapoint-api-notice.tsx
+      - name: Commit formatted files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.ts src/web-server.ts src/dashboard-store.ts src/dashboard-store.test.ts apps/frontend/src/features/widgets/dashboard-widgets.tsx apps/frontend/src/features/widgets/dashboard-editor.tsx apps/frontend/src/features/widgets/dashboard-editor.test.tsx apps/frontend/src/features/datapoints/datapoint-browser.tsx apps/frontend/src/features/datapoints/datapoint-api-notice.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "style: format dashboard editor and API diagnostics"
+            git push origin HEAD:feat/nextui-editor-and-datapoint-diagnostics
+          fi
