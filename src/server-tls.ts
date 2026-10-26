@@ -82,7 +82,7 @@ export async function resolveTlsOptions(
 			if (!certs?.key || !certs.cert) {
 				throw new Error('TLS: Die ausgewählten ioBroker-Zertifikate konnten nicht geladen werden.');
 			}
-			result = { key: certs.key, cert: certs.cert, ca: certs.ca };
+			result = { key: certs.key, cert: certs.ca ? `${certs.cert}\n${certs.ca}` : certs.cert };
 			break;
 		}
 		case 'collection': {
