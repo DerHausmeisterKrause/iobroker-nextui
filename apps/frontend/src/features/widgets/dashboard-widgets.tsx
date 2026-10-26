@@ -468,6 +468,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 					}
 				});
 		};
+		let openStream: () => void;
 		const startPolling = (retry: boolean): void => {
 			if (!active || pollingTimer) {
 				return;
@@ -485,7 +486,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 				}, 30_000);
 			}
 		};
-		const openStream = (): void => {
+		openStream = (): void => {
 			if (!active || typeof EventSource === 'undefined') {
 				startPolling(false);
 				return;
