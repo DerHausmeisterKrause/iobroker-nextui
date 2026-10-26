@@ -74,121 +74,101 @@ Dateien aus, bedient Client-Routen über den SPA-Fallback und hält `/api/*`
 außerhalb dieses Fallbacks. Nach dem Start des Adapters ist das Frontend unter
 `http://127.0.0.1:8090/` (oder dem konfigurierten Adapter-Port) erreichbar.
 
-## HTTP-Webserver
+## Webserver: HTTP oder HTTPS direkt im Adapter
 
-Beim Start des Adapters wird ein eigener HTTP-Webserver gestartet. Der
-Standardport ist `8090`; Port und Bind-Adresse lassen sich pro Adapterinstanz
-in der Admin-Konfiguration einstellen. Standardmäßig bindet der Server nur an
-`127.0.0.1`. Eine unverschlüsselte LAN-Bindung wird aus Sicherheitsgründen beim Start
-verweigert. Verwende für den Browserzugriff von anderen Geräten einen
-HTTPS-Reverse-Proxy vor dem lokalen NextUI-Server.
+NextUI bringt seinen eigenen Webserver mit. **Kein Reverse Proxy erforderlich.**
+Unter den Instanzeinstellungen `nextui.0` lassen sich Port, Bind-Adresse,
+Protokoll und Zertifikatsquelle konfigurieren. Standard: `127.0.0.1:8090`
+per HTTP, sicherer Loopback-Modus.
 
-Die Startseite zeigt den aktuellen Adapterstatus. Für künftige Frontend-
-Kommunikation gibt es bereits den schreibgeschützten Endpunkt `GET /api/health`.
-Er liefert ausschließlich unkritische Statusdaten. Es gibt derzeit keine
-ioBroker-Schreibfunktionen über HTTP. Ein einfacher passwortgeschützter HTTP-Basic-Zugang ist verfügbar;
-Benutzerverwaltung und individuelle Berechtigungen sind noch nicht umgesetzt.
+### Direkter LAN-Zugriff
 
-Die Webserver-Tests können mit `npm test` ausgeführt werden. Der vollständige
-Qualitätscheck ist:
+**Empfohlen (HTTPS):**
+1. `Webserver-Protokoll: HTTPS` wählen.
+2. `Bind-Adresse: 0.0.0.0` oder die konkrete ioBroker-LAN-IP eintragen.
+3. HTTPS-Zertifikatsquelle wählen (siehe unten).
+4. Ein **NextUI-Zugangspasswort mit mindestens 16 Zeichen** setzen.
+5. Speichern, Adapter starten und `https://IOBROKER-IP:8090/` öffnen.
 
-```bash
-npm run build
-npm run check
-npm run lint
-npm test
-```
+Falls du die ioBroker-Standardzertifikate verwendest, erscheint im Browser
+voraussichtlich eine Zertifikatswarnung. Die ioBroker-Standardzertifikate sind
+auf Installationen identisch und **nicht für sichere Identitätsprüfung
+geeignet**; für sicheren produktiven LAN-Zugriff eigene Zertifikate verwenden.
 
-## Erste Inbetriebnahme / Weboberfläche öffnen
+**Ohne Zertifikat per HTTP (bewusster Testmodus):**
+1. `Webserver-Protokoll: HTTP`, `Bind-Adresse: 0.0.0.0`.
+2. `Unsicheres HTTP im LAN ausdrücklich erlauben` einschalten.
+3. Speichern und unter `http://IOBROKER-IP:8090/` öffnen.
 
-Nach Installation des aus GitHub Actions geladenen `.tgz`-Pakets muss eine
-Adapterinstanz (z. B. `nextui.0`) angelegt und gestartet sein. Die Webseite
-wird vom **eigenen** HTTP-Server des NextUI-Adapters ausgeliefert, nicht
-innerhalb der ioBroker-Admin-Oberfläche.
+HTTP ist nicht verschlüsselt: **auch HTTP-Basic-Passwörter können abgefangen
+werden**. Deshalb bleibt die Datenpunkt-API bei LAN-HTTP normalerweise aus.
+Wer sie für ein isoliertes Testnetz dennoch benötigt, muss zusätzlich
+`Datenpunkt-API auch über unsicheres HTTP-LAN erlauben` aktivieren, ein
+NextUI-Zugangspasswort setzen, den Datenpunkt-Entwicklungsmodus aktivieren
+und mindestens eine ausdrückliche Datenpunkt-Allowlist definieren.
+Keine Internet-Portfreigabe; besser direkt HTTPS verwenden.
 
-Standardmäßig läuft NextUI auf **127.0.0.1:8090** auf dem ioBroker-Host.
-Für den ersten Test auf diesem Host:
+### HTTPS-Zertifikate
+
+Unter `HTTPS-Zertifikatsquelle` gibt es vier Wege:
+
+- **ioBroker-Zertifikatsspeicher:** Bestehendes öffentliches Zertifikat,
+  Privatschlüssel und optionale Kette in der Admin-Konfiguration auswählen.
+  Ohne eigene Auswahl werden die ioBroker-Standardzertifikate verwendet.
+- **ioBroker-Zertifikatskollektion:** Die ID aus
+  `system.certificates.native.collections` angeben (z. B. ACME).
+- **PEM direkt einfügen:** Öffentlichen PEM-Zertifikatsblock und privaten
+  PEM-Schlüssel in der Admin-Konfiguration hinterlegen. Der private
+  Schlüssel wird über `encryptedNative` und `protectedNative` geschützt.
+- **Manuell hochgeladene PEM-Dateien:** Zertifikat und Privatschlüssel
+  beispielsweise per SFTP/SCP auf den ioBroker-Host übertragen und
+  absolute Pfade konfigurieren. Den privaten Schlüssel **niemals** in den
+  öffentlich auslieferbaren Web-Ordner legen. Die ioBroker-Dienstkennung
+  benötigt Leserechte auf die Dateien; den Schlüssel restriktiv schützen.
+
+Ein direkter Upload der privaten Schlüsseldatei über den NextUI-Admin-Dialog
+ist in dieser Version noch nicht implementiert: Hierfür PEM-Inhalt einfügen
+oder die Datei auf den Host übertragen. Die Zertifikate können auch im
+ioBroker-Admin-Systemeinstellungsbereich importiert und danach ausgewählt
+werden.
+
+Ein HTTPS-Server benötigt immer ein Zertifikat, auch wenn es nur
+selbstsigniert ist. Bei defekten/fehlenden oder nicht zusammenpassenden
+Zertifikaten verweigert NextUI den HTTPS-Start, **statt auf HTTP
+zurückzufallen**. TLS 1.2 oder neuer wird erzwungen.
+
+### Lokaler Funktionstest
 
 ```bash
 curl -i http://127.0.0.1:8090/api/health
-curl -I http://127.0.0.1:8090/
 ss -lntp | grep ':8090'
 ```
 
-Zeigt `/api/health` den HTTP-Status 200 und `status: ok`, ist der
-NextUI-Webserver erreichbar. Für die Anzeige im Browser auf einem **anderen**
-Computer ist ein SSH-Tunnel die sicherere Lösung:
+Bei HTTPS stattdessen `curl -k -i https://127.0.0.1:8090/api/health`
+verwenden. `-k` ist **nur für selbstsignierte Testzertifikate**
+gedacht. Bei aktiviertem Zugangsschutz muss ein gültiger Benutzer
+(`nextui`) plus Passwort angegeben werden.
+
+Für den lokalen HTTP-Betrieb ohne LAN-Freigabe kann ein SSH-Tunnel dienen:
 
 ```bash
 ssh -N -L 8090:127.0.0.1:8090 USER@IOBROKER-IP
 ```
 
-Anschließend im lokalen Browser `http://127.0.0.1:8090/` öffnen. Die
-Datenpunkt-Ansicht liegt unter `http://127.0.0.1:8090/datenpunkte`.
+### Zugangsschutz und sensible APIs
 
-Für Zugriff von weiteren Geräten im LAN muss ein eigener HTTPS-Reverse-Proxy
-vor NextUI eingerichtet werden; eine direkte unverschlüsselte LAN-Bindung wird
-inzwischen verweigert. Näheres unter **Zugangsschutz und HTTPS-Vorbereitung**.
+Ein gesetztes NextUI-Passwort schützt sämtliche HTTP-Routen per HTTP Basic.
+Benutzername: `nextui`, Mindestlänge: 16 Zeichen; Fehleingaben werden
+rate-limitiert. **Nur HTTPS schützt das Passwort auf dem Transportweg.**
+Dies ist noch keine ioBroker-Benutzerverwaltung.
 
-Bei `Connection refused` den Adapterstatus, den Adapter-Log, Portkonflikte
-und den Listen-Socket kontrollieren. Bei `403` auf `/api/datapoints`
-den ausdrücklich lokalen Entwicklungsmodus sowie die erlaubten ID-Muster
-prüfen. Der Frontend-Einstieg `/` braucht diesen Modus nicht.
-
-## Zugangsschutz und HTTPS-Vorbereitung (Entwicklungsfassung)
-
-In den Einstellungen von `nextui.0` kann ein eigenes
-**NextUI-Zugangspasswort (mindestens 16 Zeichen)** hinterlegt werden.
-Der Benutzername für die erste Implementierung ist fest `nextui`.
-Das Passwort wird über die ioBroker-Mechanismen
-`encryptedNative` und `protectedNative` geschützt. Nach dem Speichern
-die Adapterinstanz neu starten.
-
-Sobald ein Passwort gesetzt ist, erfordert **jede HTTP-Anfrage**
-(Frontend, statische Dateien und sämtliche APIs) HTTP Basic Auth. Browser
-zeigen dafür eine eigene Anmeldemaske. Nach fünf erfolglosen Versuchen
-eines Clients wird die weitere Anmeldung vorübergehend blockiert.
-
-**Wichtig:** HTTP Basic Auth allein verschlüsselt keine Passwörter.
-Es darf deshalb nur über einen SSH-Tunnel oder mit TLS-Terminierung
-an einem HTTPS-Reverse-Proxy verwendet werden. Die NextUI-Instanz bleibt
-dabei auf `127.0.0.1:8090` gebunden. Eine direkte Bind-Adresse im LAN
-(z. B. `0.0.0.0`) wird derzeit beim Start aus Sicherheitsgründen
-verweigert. Ohne gesetztes Passwort ist ausschließlich die lokale
-Entwicklung über einen vertraulichen SSH-Tunnel geeignet.
-
-Beispiel für einen **separat abgesicherten Nginx-HTTPS-VHost**
-auf **demselben Host** wie NextUI. Die Zertifikate müssen bereits
-gültig und auf den Geräten vertrauenswürdig sein:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name nextui.example.lan;
-
-    ssl_certificate     /etc/ssl/nextui/fullchain.pem;
-    ssl_certificate_key /etc/ssl/nextui/privkey.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000" always;
-    add_header X-Content-Type-Options "nosniff" always;
-
-    location / {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_read_timeout 30s;
-    }
-}
-```
-
-Ein HSTS-Header sollte erst aktiviert werden, wenn der HTTPS-Zugriff
-dauerhaft und zuverlässig funktioniert. Keine Portweiterleitung vom
-Internet ohne weiteren Sicherheitsreview. Die Zugangsdaten sind
-**keine ioBroker-Benutzeranmeldung**, und es gibt noch keine
-individuellen ACLs oder Mehrbenutzerverwaltung. Die Datenpunkt-Allowlist
-und der lokale Entwicklungsmodus bleiben zusätzlich zwingend erforderlich.
-Der Basic-Zugang allein aktiviert keine Datenpunkt-API.
+Bei Loopback bleiben Datenpunkt-Entwicklungsmodus und Allowlist weiterhin
+Pflicht. Über das LAN wird die Datenpunkt-API nur bei HTTPS **mit Passwort**
+oder bei besonders freigegebenem unsicherem HTTP **mit Passwort**
+aktiviert. Anonyme LAN-Browser erhalten keine ioBroker-Datenpunktwerte.
+Servergespeicherte Dashboards benötigen ebenfalls Zugangsschutz und
+unterliegen derselben LAN-Transportfreigabe. Bestehende CSRF-Prüfungen
+bleiben erhalten.
 
 ## Datenpunktbrowser (lokale Entwicklung)
 
@@ -196,13 +176,11 @@ Der Bereich **Datenpunkte** im Frontend zeigt eine schreibgeschützte Suche übe
 ioBroker-`state`-Objekte. Damit keine Datenpunkte ohne Authentifizierung über
 HTTP preisgegeben werden, ist die zugehörige API standardmäßig deaktiviert.
 Für eine lokale Entwicklung muss in der Admin-Konfiguration ausdrücklich
-`Lokalen Datenpunkt-Entwicklungsmodus aktivieren` gesetzt sein. Zusätzlich
-muss die Bind-Adresse eine Loopback-Adresse (`127.0.0.1`, `::1` oder
-`localhost`) bleiben und unter `Erlaubte Datenpunkt-ID-Muster` mindestens ein
-explizites Muster konfiguriert werden, etwa `zigbee.0.*`. Ohne Allowlist bleibt
-die API deaktiviert. Bei einer LAN-Bindung verweigert der Adapter die API auch
-dann, wenn der Schalter gesetzt ist. Datenpunkte mit `common.read: false`
-werden vollständig ausgeschlossen.
+`Lokalen Datenpunkt-Entwicklungsmodus aktivieren` gesetzt sein. Zusätzlich muss unter `Erlaubte Datenpunkt-ID-Muster` mindestens ein
+explizites Muster konfiguriert werden, etwa `zigbee.0.*`. Im LAN benötigt
+die API HTTPS mit Passwort oder die gesonderte bewusste Freigabe für HTTP-LAN
+mit Passwort. Ohne Allowlist bleibt die API deaktiviert. Datenpunkte mit
+`common.read: false` werden vollständig ausgeschlossen.
 
 Nach einem Adapter-Neustart ist der Browser unter `/datenpunkte` verfügbar.
 Er verwendet `GET /api/datapoints` mit Such-, Typfilter- und
@@ -211,17 +189,15 @@ Metadaten von `state`-Objekten; es gibt keine Schreiboperationen, keine
 Adapter-Konfiguration und keine Zugangsdaten. Die Werte werden pro Ergebnisseite
 abgerufen und nur kurz begrenzt gecacht. Loopback ersetzt keine Anmeldung:
 lokale Prozesse sowie Reverse-Proxies oder Tunnel können Anfragen weiterleiten.
-Der Entwicklungsmodus darf deshalb nicht über einen Proxy veröffentlicht
-werden. Für LAN-Zugriff oder den Produktionseinsatz sind zuerst serverseitige
-Authentifizierung und Berechtigungen erforderlich.
+Den Entwicklungsmodus niemals ungeschützt ins Internet freigeben; die
+weitere Benutzer- und Rechteverwaltung ist weiterhin in Entwicklung.
 
 ## Erste Widgets (lokale Entwicklung)
 
 Die Übersichtsseite erlaubt jetzt das Hinzufügen schreibgeschützter Zahlen-, Status-
 und Text-Kacheln. Zuerst muss der Datenpunkt-Entwicklungsmodus aktiviert, die
-**Bind-Adresse auf 127.0.0.1** belassen und ein explizites Datenpunkt-Muster
-erlaubt sein. Über den SSH-Tunnel kann die Oberfläche im Browser geöffnet
-werden. In der Übersicht einen freigegebenen Datenpunkt suchen, auswählen,
+Transport und Authentifizierung gemäß den oben genannten LAN-Bedingungen
+konfiguriert und ein explizites Datenpunkt-Muster erlaubt sein. In der Übersicht einen freigegebenen Datenpunkt suchen, auswählen,
 Darstellung wählen und die Kachel hinzufügen.
 
 Für einzelne Widgetwerte nutzt NextUI `GET /api/datapoints/by-id?id=...`.
@@ -234,8 +210,7 @@ berechtigungsgesicherte Visualisierungskonfiguration und Push-Abonnements sind
 noch nicht implementiert. Noch **keine Schreibbefehle**.
 
 Die Widget-API ist ausschließlich für einen lokalen Entwicklungsaufbau gedacht.
-Sie darf nur hinter einem vertraulichen HTTPS-Reverse-Proxy **mit aktivierter
-NextUI-Authentifizierung** genutzt werden. Die lokale Entwicklungsmodus-Allowlist
+Für das LAN wird direktes HTTPS mit NextUI-Authentifizierung empfohlen. Die lokale Entwicklungsmodus-Allowlist
 bleibt weiterhin notwendig. Dies ersetzt noch keine individuellen Benutzerrechte.
 
 ## Servergespeicherte Dashboard-Kacheln
