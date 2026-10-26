@@ -8,7 +8,7 @@ import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
 import { DashboardStore } from './dashboard-store';
 import { DatapointLiveHub } from './datapoint-live-hub';
-import { isLoopbackAddress, resolveTlsOptions, validateHttpTransport, type IoBrokerCertificateProvider, type TlsCertificateSource, type WebTransport } from './server-tls';
+import { isLoopbackAddress, resolveTlsOptions, validateHttpTransport, type WebTransport } from './server-tls';
 
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -44,7 +44,7 @@ class Nextui extends utils.Adapter {
 			if (transport === 'https') {
 				tlsOptions = await resolveTlsOptions(
 					{
-						source: (this.config.tlsCertificateSource || 'iobroker') as TlsCertificateSource,
+						source: this.config.tlsCertificateSource || 'iobroker',
 						publicCertificate: this.config.certPublic,
 						privateCertificate: this.config.certPrivate,
 						chainCertificate: this.config.certChained,
@@ -55,7 +55,7 @@ class Nextui extends utils.Adapter {
 						keyFile: this.config.tlsKeyFile,
 						chainFile: this.config.tlsChainFile,
 					},
-					this as unknown as IoBrokerCertificateProvider,
+					this,
 				);
 			}
 		} catch (error) {
