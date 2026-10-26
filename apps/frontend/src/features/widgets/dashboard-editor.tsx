@@ -135,7 +135,10 @@ export function WidgetLayout({
 				>
 					<div className="flex items-center justify-between gap-3">
 						<h3 className="font-semibold">Kachel bearbeiten</h3>
-						<button type="button" onClick={() => { setSelectedId(undefined); setDraft(undefined); }} aria-label="Editor schließen"><X size={19} /></button>
+						<button type="button" onClick={() => {
+							setSelectedId(undefined);
+							setDraft(undefined);
+						}} aria-label="Editor schließen"><X size={19} /></button>
 					</div>
 					<div className="grid gap-4 sm:grid-cols-2">
 						<label className="text-sm font-semibold">Titel
