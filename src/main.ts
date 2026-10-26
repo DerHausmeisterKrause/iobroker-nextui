@@ -71,7 +71,10 @@ class Nextui extends utils.Adapter {
 		}
 		if (
 			transport === 'https' &&
-			(!this.config.certPublic || !this.config.certPrivate) &&
+			(!this.config.certPublic ||
+				this.config.certPublic === 'defaultPublic' ||
+				!this.config.certPrivate ||
+				this.config.certPrivate === 'defaultPrivate') &&
 			(!this.config.tlsCertificateSource || this.config.tlsCertificateSource === 'iobroker')
 		) {
 			this.log.warn(
