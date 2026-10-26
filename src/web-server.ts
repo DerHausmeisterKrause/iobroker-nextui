@@ -308,7 +308,7 @@ export class NextuiWebServer {
 		response.writeHead(200, {
 			'Content-Type': 'text/event-stream; charset=utf-8',
 			'Cache-Control': 'no-store, no-transform',
-			'Connection': 'keep-alive',
+			Connection: 'keep-alive',
 			'X-Accel-Buffering': 'no',
 			'X-Content-Type-Options': 'nosniff',
 		});
