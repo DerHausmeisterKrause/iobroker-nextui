@@ -7,6 +7,7 @@ import { DatapointApi, parseAllowedPatterns, type DatapointAdapterApi } from './
 import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
 import { DashboardStore } from './dashboard-store';
+import { DatapointLiveHub } from './datapoint-live-hub';
 
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -15,10 +16,14 @@ class Nextui extends utils.Adapter {
 	private webServer: NextuiWebServer | undefined;
 	private datapointApi: DatapointApi | undefined;
 	private dashboardStore: DashboardStore | undefined;
+	private liveHub: DatapointLiveHub | undefined;
+	private objectSubscriptions: string[] = [];
 
 	public constructor(options: Partial<utils.AdapterOptions> = {}) {
 		super({ ...options, name: 'nextui' });
 		this.on('ready', this.onReady.bind(this));
+		this.on('stateChange', this.onStateChange.bind(this));
+		this.on('objectChange', this.onObjectChange.bind(this));
 		this.on('unload', this.onUnload.bind(this));
 	}
 
@@ -62,6 +67,7 @@ class Nextui extends utils.Adapter {
 		this.datapointApi = datapointApiEnabled
 			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
 			: undefined;
+		this.liveHub = this.datapointApi ? new DatapointLiveHub(this) : undefined;
 		this.dashboardStore = authenticator
 			? new DashboardStore({
 					read: async () => {
@@ -86,10 +92,17 @@ class Nextui extends utils.Adapter {
 			dashboardStore: this.dashboardStore,
 			datapointApi: this.datapointApi,
 			datapointApiEnabled,
+			liveHub: this.liveHub,
 			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
 		});
 
 		try {
+			if (this.datapointApi) {
+				for (const pattern of allowedPatterns) {
+					await this.subscribeForeignObjectsAsync(pattern);
+					this.objectSubscriptions.push(pattern);
+				}
+			}
 			await this.webServer.start();
 			this.log.info(`HTTP-Server für ${instance} läuft auf ${bindAddress}:${this.webServer.getStatus().port}`);
 		} catch (error) {
@@ -98,6 +111,19 @@ class Nextui extends utils.Adapter {
 			this.webServer = undefined;
 			this.terminate(message, 1);
 		}
+	}
+
+	private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
+		this.datapointApi?.updateState(id, state ?? null);
+		this.liveHub?.publish(id);
+	}
+
+	private onObjectChange(id: string): void {
+		if (!this.datapointApi || !this.liveHub) {
+			return;
+		}
+		this.datapointApi.invalidateObjects();
+		this.liveHub.publish(id);
 	}
 
 	private getConfiguredPort(): number {
@@ -111,20 +137,23 @@ class Nextui extends utils.Adapter {
 
 	private onUnload(callback: () => void): void {
 		const webServer = this.webServer;
+		const hub = this.liveHub;
+		const objectPatterns = this.objectSubscriptions.splice(0);
 		this.webServer = undefined;
+		this.liveHub = undefined;
 		this.datapointApi = undefined;
 		this.dashboardStore = undefined;
-		if (!webServer) {
-			callback();
-			return;
-		}
-		webServer
-			.stop()
-			.then(callback)
-			.catch(error => {
-				this.log.error(`Fehler beim Beenden des HTTP-Servers: ${(error as Error).message}`);
-				callback();
-			});
+		void (async () => {
+			if (webServer) {
+				await webServer.stop();
+			}
+			if (hub) {
+				await hub.close();
+			}
+			await Promise.allSettled(objectPatterns.map(pattern => this.unsubscribeForeignObjectsAsync(pattern)));
+		})()
+			.catch(error => this.log.error(`Fehler beim Beenden der Live-Abonnements: ${String(error)}`))
+			.finally(callback);
 	}
 }
 

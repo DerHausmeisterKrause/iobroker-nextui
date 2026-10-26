@@ -431,15 +431,20 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 	const [error, setError] = useState<string>();
 	const [loading, setLoading] = useState(true);
 
+	const [live, setLive] = useState(false);
+
 	useEffect(() => {
-		let activeController: AbortController | undefined;
+		let active = true;
+		let controller: AbortController | undefined;
+		let stream: EventSource | undefined;
+		let pollingTimer: ReturnType<typeof setInterval> | undefined;
+		let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+
 		const refresh = (): void => {
-			activeController?.abort();
-			const controller = new AbortController();
-			activeController = controller;
-			void fetch(`/api/datapoints/by-id?id=${encodeURIComponent(config.datapointId)}`, {
-				signal: controller.signal,
-			})
+			controller?.abort();
+			const next = new AbortController();
+			controller = next;
+			void fetch(`/api/datapoints/by-id?id=${encodeURIComponent(config.datapointId)}`, { signal: next.signal })
 				.then(async response => {
 					if (!response.ok) {
 						throw new Error(
@@ -451,28 +456,89 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 					return (await response.json()) as { item: Datapoint };
 				})
 				.then(result => {
-					if (!controller.signal.aborted) {
+					if (active && !next.signal.aborted) {
 						setItem(result.item);
 						setError(undefined);
 					}
 				})
 				.catch(reason => {
-					if (!controller.signal.aborted) {
-						setItem(undefined);
+					if (active && !next.signal.aborted) {
 						setError((reason as Error).message);
 					}
 				})
 				.finally(() => {
-					if (!controller.signal.aborted) {
+					if (active && !next.signal.aborted) {
 						setLoading(false);
 					}
 				});
 		};
-		refresh();
-		const timer = window.setInterval(refresh, REFRESH_INTERVAL_MS);
+		const connection = { open: (): void => undefined };
+		const startPolling = (retry: boolean): void => {
+			if (!active || pollingTimer) {
+				return;
+			}
+			setLive(false);
+			refresh();
+			pollingTimer = setInterval(refresh, REFRESH_INTERVAL_MS);
+			if (retry) {
+				reconnectTimer = setTimeout(() => {
+					if (pollingTimer) {
+						clearInterval(pollingTimer);
+						pollingTimer = undefined;
+					}
+					connection.open();
+				}, 30_000);
+			}
+		};
+		const openStream = (): void => {
+			if (!active || typeof EventSource === 'undefined') {
+				startPolling(false);
+				return;
+			}
+			stream = new EventSource(`/api/datapoints/events?id=${encodeURIComponent(config.datapointId)}`);
+			stream.onopen = () => {
+				if (active) {
+					setLive(true);
+				}
+			};
+			stream.addEventListener('datapoint', event => {
+				try {
+					const nextItem = JSON.parse((event as MessageEvent<string>).data) as Datapoint;
+					if (active && nextItem.id === config.datapointId) {
+						controller?.abort();
+						setItem(nextItem);
+						setError(undefined);
+						setLoading(false);
+					}
+				} catch {
+					// A malformed event is ignored; reconnect/poll remains available.
+				}
+			});
+			stream.addEventListener('removed', () => {
+				if (active) {
+					setItem(undefined);
+					setError('Datenpunkt nicht verfügbar oder nicht freigegeben');
+					setLoading(false);
+				}
+			});
+			stream.onerror = () => {
+				stream?.close();
+				stream = undefined;
+				startPolling(true);
+			};
+		};
+		connection.open = openStream;
+		openStream();
 		return () => {
-			window.clearInterval(timer);
-			activeController?.abort();
+			active = false;
+			controller?.abort();
+			stream?.close();
+			if (pollingTimer) {
+				clearInterval(pollingTimer);
+			}
+			if (reconnectTimer) {
+				clearTimeout(reconnectTimer);
+			}
 		};
 	}, [config.datapointId]);
 
@@ -485,6 +551,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 			<div className="flex items-start justify-between gap-3">
 				<h3 className="min-w-0 break-words font-bold">{config.title}</h3>
 				<div className="flex items-center gap-2">
+					<span className="text-xs text-slate-500">{live ? 'Live' : '10 s'}</span>
 					<RefreshCw
 						size={15}
 						className="text-slate-400"
