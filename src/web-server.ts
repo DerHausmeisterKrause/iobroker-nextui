@@ -292,7 +292,7 @@ export class NextuiWebServer {
 			ids.length === 0 ||
 			ids.length > 12 ||
 			new Set(ids).size !== ids.length ||
-			ids.some(id => !id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\\0'))
+			ids.some(id => !id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\0'))
 		) {
 			throw new InvalidRequestError('Invalid live datapoint IDs.');
 		}
