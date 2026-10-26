@@ -266,3 +266,56 @@ benutzerbezogene ACL- und Produktionsauthentifizierung. Für die Vorschau
 nur Loopback, SSH-Tunnel oder entsprechend abgesicherten lokalen Zugriff
 verwenden. Die Dashboard-Konfiguration wird weiterhin über die separate
 Dashboard-API gespeichert.
+
+## Keine Datenpunktwerte sichtbar? (NextUI-Diagnose)
+
+Die Login-Anmeldung ist unabhängig vom ioBroker-Datenpunktzugriff. NextUI
+benötigt eine freigegebene Datenpunkt-API, damit die Widget-Kacheln Werte
+anzeigen. Ab dieser Version meldet `GET /api/health` unter
+`features.datapoints.enabled`, ob die API aktiv ist, und erklärt bei
+Deaktivierung den Grund unter `features.datapoints.hint` (keine
+Passwörter/Zertifikate oder rohen Objekte). Dashboard und Datenpunktbrowser
+zeigen eine entsprechende Warnung.
+
+Für **HTTPS im LAN** in `nextui.0` einstellen:
+
+- HTTPS mit einem geeigneten Zertifikat und LAN-Bind-Adresse
+- NextUI-Zugangspasswort (mindestens 16 Zeichen)
+- `Schreibgeschützte Datenpunkt-API aktivieren (Entwicklungsmodus)`
+- `Erlaubte Datenpunkt-ID-Muster` passend zu echten IDs, beispielsweise
+  `0_userdata.0.*` oder `zigbee.0.*`
+
+Danach die Instanz neu starten. Test im angemeldeten Browser:
+`https://IOBROKER-IP:8090/api/health` und
+`https://IOBROKER-IP:8090/api/datapoints?limit=5`.
+HTTP 403 bedeutet gesperrte API; HTTP 200 mit leerer Liste deutet auf
+nicht passende Allowlist oder noch fehlende State-Objekte hin. HTTP 200
+mit `items`, deren `value` gleich `null` ist, bedeutet, dass zum Objekt
+gerade kein State-Wert verfügbar ist. Datenpunkte mit `common.read === false`
+sind absichtlich nicht lesbar.
+
+Beim **HTTP-LAN-Testmodus** sind zusätzlich die beiden Warn-Freigaben
+(`Unsicheres HTTP im LAN` und `Datenpunkt-API auch über unsicheres
+HTTP-LAN`) erforderlich. HTTP Basic gibt Zugangsdaten unverschlüsselt
+weiter; für den regulären Einsatz HTTPS verwenden.
+
+## Visueller Dashboard-Editor (erste Ausbaustufe)
+
+Auf der Übersichtsseite `Dashboard bearbeiten` auswählen. Kacheln
+über den Ziehgriff umordnen oder mit den Hoch/Runter-Schaltflächen
+verschieben. Über `Bearbeiten` können Titel, Datenpunkt-ID, Darstellung
+und Breite (1/2/3 Spalten) geändert werden. Auf Tablets und Smartphones
+steht die Schaltflächen-Navigation als Alternative zu Drag-and-drop bereit.
+Die Breite ist responsive und entspricht auf kleinen Bildschirmen dem
+vorhandenen Spaltenraster.
+
+Die Reihenfolge und Breiten werden über die bereits vorhandene
+authentifizierte `PUT /api/dashboard`-API mit Revisionsprüfung im
+ioBroker-Objektspeicher persistiert. Bei konkurrierenden Änderungen wird
+nicht automatisch überschrieben. Bereits gespeicherte Dashboards
+ohne Breitenangaben bleiben gültig (Standardbreite 1).
+Das Bearbeiten von Datenpunkt-IDs aktiviert keinen ioBroker-Schreibzugriff:
+gesperrte oder nicht freigegebene IDs liefern weiterhin keine Werte.
+
+Dies ist die erste Editor-Ausbaustufe; frei skalierbare Raster,
+Mehrseiten-Dashboards und Benutzer-ACLs sind separate nächste Schritte.
