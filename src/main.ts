@@ -8,6 +8,7 @@ import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
 import { DashboardStore } from './dashboard-store';
 import { DatapointLiveHub } from './datapoint-live-hub';
+import { isLoopbackAddress, resolveTlsOptions, validateHttpTransport, type WebTransport } from './server-tls';
 
 const DEFAULT_PORT = 8090;
 const DEFAULT_BIND_ADDRESS = '127.0.0.1';
@@ -31,12 +32,54 @@ class Nextui extends utils.Adapter {
 		const port = this.getConfiguredPort();
 		const bindAddress = this.config.bindAddress?.trim() || DEFAULT_BIND_ADDRESS;
 		const instance = this.namespace ?? `nextui.${this.instance}`;
-		if (!isLoopbackAddress(bindAddress)) {
-			const message =
-				'NextUI verweigert derzeit die unverschlüsselte LAN-Bindung. Bitte Loopback und einen HTTPS-Reverse-Proxy verwenden.';
-			this.log.error(message);
+		const transport: WebTransport = this.config.webTransport === 'https' ? 'https' : 'http';
+		const local = isLoopbackAddress(bindAddress);
+		let tlsOptions: Awaited<ReturnType<typeof resolveTlsOptions>> | undefined;
+		try {
+			validateHttpTransport({
+				transport,
+				bindAddress,
+				allowInsecureHttpLan: this.config.allowInsecureHttpLan === true,
+			});
+			if (transport === 'https') {
+				tlsOptions = await resolveTlsOptions(
+					{
+						source: this.config.tlsCertificateSource || 'iobroker',
+						publicCertificate: this.config.certPublic,
+						privateCertificate: this.config.certPrivate,
+						chainCertificate: this.config.certChained,
+						collectionId: this.config.tlsCollectionId,
+						certPem: this.config.tlsCertPem,
+						keyPem: this.config.tlsKeyPem,
+						certFile: this.config.tlsCertFile,
+						keyFile: this.config.tlsKeyFile,
+						chainFile: this.config.tlsChainFile,
+					},
+					this,
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.log.error(`NextUI-Webserverkonfiguration ungültig: ${message}`);
 			this.terminate(message, 1);
 			return;
+		}
+		if (!local && transport === 'http') {
+			this.log.warn(
+				'UNSICHERER LAN-MODUS: HTTP überträgt Seiten und ggf. Basic-Zugangsdaten unverschlüsselt. Nur in einem vertrauenswürdigen Testnetz verwenden!',
+			);
+		}
+		if (
+			transport === 'https' &&
+			(!this.config.certPublic ||
+				this.config.certPublic === 'defaultPublic' ||
+				!this.config.certPrivate ||
+				this.config.certPrivate === 'defaultPrivate') &&
+			(!this.config.tlsCertificateSource || this.config.tlsCertificateSource === 'iobroker')
+		) {
+			this.log.warn(
+				'NextUI HTTPS nutzt möglicherweise die gemeinsamen ioBroker-Standardzertifikate. Bitte für sicheren LAN-Zugriff eigene Zertifikate einrichten.',
+			);
 		}
 		let authenticator: HttpAuthenticator | undefined;
 		const uiPassword = this.config.uiPassword ?? '';
@@ -51,43 +94,52 @@ class Nextui extends utils.Adapter {
 			}
 		} else {
 			this.log.warn(
-				'NextUI läuft ohne Passwortschutz. Nur über lokalen SSH-Tunnel verwenden; nicht öffentlich weiterleiten.',
+				'NextUI läuft ohne Anmeldung. Datenpunkt-API und Dashboard-Speicherung bleiben für den nichtlokalen Zugriff gesperrt.',
 			);
 		}
 		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
+		const remoteSensitiveAccess =
+			!local &&
+			!!authenticator &&
+			(transport === 'https' ||
+				(transport === 'http' &&
+					this.config.allowInsecureHttpLan === true &&
+					this.config.allowInsecureDataApiOverHttp === true));
+		const sensitiveAccessAllowed = local || remoteSensitiveAccess;
 		const datapointApiEnabled =
-			this.config.datapointApiDevelopmentMode === true &&
-			isLoopbackAddress(bindAddress) &&
-			allowedPatterns.length > 0;
+			this.config.datapointApiDevelopmentMode === true && sensitiveAccessAllowed && allowedPatterns.length > 0;
 		if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
 			this.log.warn(
-				'Der Datenpunkt-Entwicklungsmodus bleibt deaktiviert: Loopback-Bindung und mindestens ein erlaubtes ID-Muster sind erforderlich.',
+				'Die Datenpunkt-API bleibt deaktiviert: explizite ID-Allowlist und entweder Loopback oder geschützter LAN-Modus (HTTPS mit Passwort; HTTP nur bei zusätzlicher unsicherer Freigabe) sind erforderlich.',
 			);
 		}
 		this.datapointApi = datapointApiEnabled
 			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
 			: undefined;
 		this.liveHub = this.datapointApi ? new DatapointLiveHub(this) : undefined;
-		this.dashboardStore = authenticator
-			? new DashboardStore({
-					read: async () => {
-						const stored = await this.getObjectAsync('dashboard');
-						return stored?.native?.dashboard;
-					},
-					write: async document => {
-						await this.setObjectAsync('dashboard', {
-							type: 'channel',
-							common: { name: 'NextUI Dashboard' },
-							native: { dashboard: document },
-						});
-					},
-				})
-			: undefined;
+		this.dashboardStore =
+			authenticator && sensitiveAccessAllowed
+				? new DashboardStore({
+						read: async () => {
+							const stored = await this.getObjectAsync('dashboard');
+							return stored?.native?.dashboard;
+						},
+						write: async document => {
+							await this.setObjectAsync('dashboard', {
+								type: 'channel',
+								common: { name: 'NextUI Dashboard' },
+								native: { dashboard: document },
+							});
+						},
+					})
+				: undefined;
 		this.webServer = new NextuiWebServer({
 			port,
 			bindAddress,
 			instance,
 			version: this.version ?? '0.0.1',
+			transport,
+			tlsOptions,
 			authenticator,
 			dashboardStore: this.dashboardStore,
 			datapointApi: this.datapointApi,
@@ -104,7 +156,9 @@ class Nextui extends utils.Adapter {
 				}
 			}
 			await this.webServer.start();
-			this.log.info(`HTTP-Server für ${instance} läuft auf ${bindAddress}:${this.webServer.getStatus().port}`);
+			this.log.info(
+				`NextUI-Webserver für ${instance} läuft auf ${transport}://${bindAddress}:${this.webServer.getStatus().port}`,
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.log.error(`HTTP-Server konnte nicht gestartet werden: ${message}`);
@@ -157,9 +211,6 @@ class Nextui extends utils.Adapter {
 	}
 }
 
-function isLoopbackAddress(address: string): boolean {
-	return address === '127.0.0.1' || address === '::1' || address.toLocaleLowerCase() === 'localhost';
-}
 if (require.main !== module) {
 	module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new Nextui(options);
 } else {

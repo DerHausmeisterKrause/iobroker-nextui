@@ -143,3 +143,26 @@ The React widget uses EventSource when available, falling back to a
 10-second read-only poll after connection failure, with a periodic reconnect
 attempt. The server caps concurrent streams and each stream's ID count,
 and drops slow consumers instead of accumulating unlimited response buffers.
+
+## Direct HTTP / HTTPS transport
+
+NextUI runs its own built-in Node.js HTTP or HTTPS server: no external proxy
+is required. Adapter configuration determines protocol, bind address, port
+and TLS certificate source. TLS certificate/key pairs are resolved from
+ioBroker's certificate API, the system certificate collection database,
+encrypted PEM config fields, or explicitly configured absolute PEM file
+paths. The pair is checked with `tls.createSecureContext` before the server
+starts. TLS failure never downgrades the listener to cleartext HTTP.
+
+Plain HTTP on a non-loopback interface requires an explicit insecure-LAN
+toggle. Server-side read APIs for ioBroker datapoints and dashboard storage
+are enabled remotely only if NextUI's Basic authenticator is active
+and either HTTPS is selected, or two distinct insecure-HTTP opt-in toggles
+have been enabled. Every datapoint operation still requires developer mode
+and explicit ID allowlisting. No arbitrary remote write to ioBroker states
+is provided. HTTP Basic over plain HTTP exposes password credentials on the
+network and is unsuitable outside a carefully isolated lab network.
+
+HTTPS with default ioBroker certificates may provide encryption but those
+shared defaults do not establish a trustworthy server identity. Use your own
+valid certificates for LAN devices and any more widely exposed deployment.

@@ -4,7 +4,7 @@
 	"items": {
 		"port": {
 			"type": "number",
-			"label": "HTTP-Port",
+			"label": "Webserver-Port",
 			"default": 8090,
 			"min": 1,
 			"max": 65535,
@@ -26,7 +26,217 @@
 			"md": 6,
 			"lg": 4,
 			"xl": 4,
-			"help": "Sicherheitsgrenze: derzeit nur 127.0.0.1/::1/localhost erlaubt. LAN-Zugriff ausschließlich über einen separat konfigurierten HTTPS-Reverse-Proxy oder SSH-Tunnel."
+			"help": "127.0.0.1: nur auf dem ioBroker-Host. 0.0.0.0 oder konkrete LAN-IP: direkt vom LAN erreichbar. HTTP im LAN benötigt eine ausdrückliche unsichere Freigabe, HTTPS ein Zertifikat."
+		},
+		"webTransport": {
+			"type": "select",
+			"label": "Webserver-Protokoll",
+			"default": "http",
+			"options": [
+				{
+					"label": "HTTP (ohne Verschlüsselung)",
+					"value": "http"
+				},
+				{
+					"label": "HTTPS (TLS direkt im Adapter)",
+					"value": "https"
+				}
+			],
+			"newLine": true,
+			"xs": 12,
+			"sm": 6,
+			"md": 4,
+			"lg": 4,
+			"xl": 4
+		},
+		"allowInsecureHttpLan": {
+			"type": "checkbox",
+			"label": "Unsicheres HTTP im LAN ausdrücklich erlauben",
+			"default": false,
+			"hidden": "data.webTransport === 'https'",
+			"help": "ACHTUNG: HTTP im LAN ist unverschlüsselt; Basic-Anmeldedaten können mitgelesen werden. Nicht über Router/Internet freigeben. Nur für vertrauenswürdige Testnetze.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 10,
+			"xl": 10
+		},
+		"allowInsecureDataApiOverHttp": {
+			"type": "checkbox",
+			"label": "Datenpunkt-API auch über unsicheres HTTP-LAN erlauben",
+			"default": false,
+			"hidden": "data.webTransport === 'https' || !data.allowInsecureHttpLan",
+			"help": "HOHES RISIKO: Nur mit gesetztem Zugangspasswort, lokaler Datenpunkt-Allowlist und expliziter Bestätigung. Werte und Basic-Passwort bleiben über HTTP abhörbar. Besser HTTPS einsetzen.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 10,
+			"xl": 10
+		},
+		"tlsCertificateSource": {
+			"type": "select",
+			"label": "HTTPS-Zertifikatsquelle",
+			"default": "iobroker",
+			"hidden": "data.webTransport !== 'https'",
+			"options": [
+				{
+					"label": "ioBroker-Zertifikatsspeicher (inkl. Standardzertifikate)",
+					"value": "iobroker"
+				},
+				{
+					"label": "ioBroker-Zertifikatskollektion (z. B. ACME)",
+					"value": "collection"
+				},
+				{
+					"label": "PEM-Zertifikat und -Schlüssel direkt einfügen",
+					"value": "pem"
+				},
+				{
+					"label": "PEM-Dateien auf dem ioBroker-Host (manuell hochgeladen)",
+					"value": "files"
+				}
+			],
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 8,
+			"lg": 8,
+			"xl": 6
+		},
+		"certPublic": {
+			"type": "certificate",
+			"certType": "public",
+			"label": "ioBroker-Zertifikat (öffentlich)",
+			"default": "defaultPublic",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'iobroker'",
+			"newLine": true,
+			"xs": 12,
+			"sm": 6,
+			"md": 6,
+			"lg": 6,
+			"xl": 6
+		},
+		"certPrivate": {
+			"type": "certificate",
+			"certType": "private",
+			"label": "ioBroker-Privatschlüssel",
+			"default": "defaultPrivate",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'iobroker'",
+			"xs": 12,
+			"sm": 6,
+			"md": 6,
+			"lg": 6,
+			"xl": 6
+		},
+		"certChained": {
+			"type": "certificate",
+			"certType": "chained",
+			"label": "ioBroker-Zertifikatskette (optional)",
+			"default": "",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'iobroker'",
+			"newLine": true,
+			"xs": 12,
+			"sm": 6,
+			"md": 6,
+			"lg": 6,
+			"xl": 6
+		},
+		"tlsCollectionId": {
+			"type": "text",
+			"label": "Zertifikatskollektion-ID",
+			"default": "",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'collection'",
+			"help": "ID unter system.certificates / native.collections, zum Beispiel eine vom ACME-Adapter verwaltete Kollektion.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 8,
+			"lg": 8,
+			"xl": 8
+		},
+		"tlsCertPem": {
+			"type": "text",
+			"label": "Zertifikat (PEM)",
+			"default": "",
+			"minRows": 4,
+			"maxRows": 10,
+			"trim": false,
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'pem'",
+			"help": "PEM ab -----BEGIN CERTIFICATE----- einschließlich BEGIN/END einfügen.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 12,
+			"xl": 12
+		},
+		"tlsKeyPem": {
+			"type": "text",
+			"label": "Privatschlüssel (PEM, geschützt gespeichert)",
+			"default": "",
+			"minRows": 4,
+			"maxRows": 10,
+			"trim": false,
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'pem'",
+			"help": "Privatschlüssel bleibt als encryptedNative/protectedNative in der ioBroker-Instanzkonfiguration. Nicht in Logs oder Screenshots teilen.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 12,
+			"xl": 12
+		},
+		"tlsCertFile": {
+			"type": "text",
+			"label": "Pfad zur Zertifikatsdatei (.pem)",
+			"default": "",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'files'",
+			"help": "Absoluter Pfad auf dem ioBroker-Host, z. B. /opt/iobroker/certs/nextui.crt. Per SFTP/SCP oder Host-Dateimanager hochladen.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 8,
+			"xl": 8
+		},
+		"tlsKeyFile": {
+			"type": "text",
+			"label": "Pfad zur privaten Schlüsseldatei (.pem)",
+			"default": "",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'files'",
+			"help": "Datei muss vom ioBroker-Benutzer lesbar sein. Dateiberechtigung idealerweise 0600, privater Schlüssel niemals im WWW-Verzeichnis.",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 8,
+			"xl": 8
+		},
+		"tlsChainFile": {
+			"type": "text",
+			"label": "Pfad zur Zwischenzertifikatskette (optional)",
+			"default": "",
+			"hidden": "data.webTransport !== 'https' || data.tlsCertificateSource !== 'files'",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 12,
+			"lg": 8,
+			"xl": 8
+		},
+		"uiPassword": {
+			"type": "password",
+			"label": "NextUI-Zugangspasswort",
+			"default": "",
+			"help": "Optional, mindestens 16 Zeichen; aktiviert HTTP Basic für die gesamte NextUI-Webseite. Nur HTTPS schützt das Passwort beim Transport. Bei HTTP im LAN ist es abhörbar!",
+			"newLine": true,
+			"xs": 12,
+			"sm": 12,
+			"md": 8,
+			"lg": 6,
+			"xl": 6
 		},
 		"datapointApiDevelopmentMode": {
 			"type": "checkbox",
@@ -50,18 +260,6 @@
 			"md": 12,
 			"lg": 8,
 			"xl": 8
-		},
-		"uiPassword": {
-			"type": "password",
-			"label": "NextUI-Zugangspasswort",
-			"default": "",
-			"help": "Optionaler lokaler Zugangsschutz (mindestens 16 Zeichen). Bei Einrichtung schützt HTTP Basic sämtliche NextUI-Seiten und APIs. Nur mit SSH-Tunnel oder HTTPS-Reverse-Proxy verwenden, niemals über unverschlüsseltes LAN-HTTP.",
-			"newLine": true,
-			"xs": 12,
-			"sm": 12,
-			"md": 8,
-			"lg": 6,
-			"xl": 6
 		}
 	}
 }
