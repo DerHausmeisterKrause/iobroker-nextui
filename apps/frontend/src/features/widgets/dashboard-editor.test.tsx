@@ -22,7 +22,10 @@ describe('dashboard layout editor', () => {
 
 	it('updates only the selected widget properties without dropping another widget', () => {
 		const updated = updateWidget(widgets, 'b', {
-			title: 'Neue Lampe', datapointId: 'safe.0.new', kind: 'number', span: 2,
+			title: 'Neue Lampe',
+			datapointId: 'safe.0.new',
+			kind: 'number',
+			span: 2,
 		});
 		expect(updated[0]).toEqual(widgets[0]);
 		expect(updated[1]).toMatchObject({ id: 'b', title: 'Neue Lampe', span: 2, datapointId: 'safe.0.new' });

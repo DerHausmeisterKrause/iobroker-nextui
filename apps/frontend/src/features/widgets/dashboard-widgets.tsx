@@ -197,7 +197,9 @@ export function DashboardWidgets(): JSX.Element {
 					disabled={!document || loading || saving}
 					onClick={() => setEditing(current => !current)}
 					className="min-h-10 rounded-xl border border-sky-400 px-4 text-sm font-semibold disabled:opacity-40"
-				>{editing ? 'Editor schließen' : 'Dashboard bearbeiten'}</button>
+				>
+					{editing ? 'Editor schließen' : 'Dashboard bearbeiten'}
+				</button>
 				<p className="text-xs text-slate-500">
 					{widgets.length} von {MAX_WIDGETS} Kacheln · Live-Updates mit Polling-Fallback
 				</p>

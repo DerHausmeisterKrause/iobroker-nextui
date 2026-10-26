@@ -193,7 +193,20 @@ export class NextuiWebServer {
 		}
 
 		if (requestUrl.pathname === '/api/health') {
-			this.sendJson(response, 200, { status: 'ok', server: this.getStatus(), features: { datapoints: { enabled: this.options.datapointApiEnabled === true, hint: this.options.datapointApiEnabled ? undefined : this.options.datapointApiStatusHint ?? 'Datenpunkt-API deaktiviert. Konfiguration und Allowlist prüfen.' }, dashboard: { enabled: !!this.options.dashboardStore && !!this.options.authenticator } } });
+			this.sendJson(response, 200, {
+				status: 'ok',
+				server: this.getStatus(),
+				features: {
+					datapoints: {
+						enabled: this.options.datapointApiEnabled === true,
+						hint: this.options.datapointApiEnabled
+							? undefined
+							: (this.options.datapointApiStatusHint ??
+								'Datenpunkt-API deaktiviert. Konfiguration und Allowlist prüfen.'),
+					},
+					dashboard: { enabled: !!this.options.dashboardStore && !!this.options.authenticator },
+				},
+			});
 			return;
 		}
 		if (requestUrl.pathname === '/api/datapoints/events') {

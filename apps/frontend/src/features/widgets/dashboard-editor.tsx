@@ -3,7 +3,11 @@ import { GripVertical, MoveDown, MoveUp, Pencil, X } from 'lucide-react';
 import type { DashboardWidgetConfig } from './dashboard-widgets';
 import { widgetRegistry, type WidgetKind } from './registry';
 
-export function reorderWidgets(widgets: DashboardWidgetConfig[], fromId: string, toId: string): DashboardWidgetConfig[] {
+export function reorderWidgets(
+	widgets: DashboardWidgetConfig[],
+	fromId: string,
+	toId: string,
+): DashboardWidgetConfig[] {
 	const from = widgets.findIndex(widget => widget.id === fromId);
 	const to = widgets.findIndex(widget => widget.id === toId);
 	if (from < 0 || to < 0 || from === to) {
@@ -20,7 +24,7 @@ export function updateWidget(
 	id: string,
 	patch: Pick<DashboardWidgetConfig, 'title' | 'datapointId' | 'kind' | 'span'>,
 ): DashboardWidgetConfig[] {
-	return widgets.map(widget => widget.id === id ? { ...widget, ...patch } : widget);
+	return widgets.map(widget => (widget.id === id ? { ...widget, ...patch } : widget));
 }
 
 const widthClasses: Record<1 | 2 | 3, string> = {
@@ -88,28 +92,36 @@ export function WidgetLayout({
 									aria-label={`Kachel ${widget.title} ziehen`}
 									title="Zum Verschieben ziehen"
 									className="rounded p-1 hover:bg-sky-100 dark:hover:bg-sky-950"
-								><GripVertical size={17} /></button>
+								>
+									<GripVertical size={17} />
+								</button>
 								<button
 									type="button"
 									disabled={disabled || index === 0}
 									onClick={() => onChange(reorderWidgets(widgets, widget.id, widgets[index - 1].id))}
 									aria-label={`Kachel ${widget.title} nach oben`}
 									className="rounded p-1 disabled:opacity-30"
-								><MoveUp size={17} /></button>
+								>
+									<MoveUp size={17} />
+								</button>
 								<button
 									type="button"
 									disabled={disabled || index === widgets.length - 1}
 									onClick={() => onChange(reorderWidgets(widgets, widget.id, widgets[index + 1].id))}
 									aria-label={`Kachel ${widget.title} nach unten`}
 									className="rounded p-1 disabled:opacity-30"
-								><MoveDown size={17} /></button>
+								>
+									<MoveDown size={17} />
+								</button>
 								<button
 									type="button"
 									disabled={disabled}
 									onClick={() => choose(widget)}
 									aria-label={`Kachel ${widget.title} bearbeiten`}
 									className="ml-auto flex items-center gap-1 rounded px-2 py-1 font-semibold hover:bg-sky-100 dark:hover:bg-sky-950"
-								><Pencil size={15} /> Bearbeiten</button>
+								>
+									<Pencil size={15} /> Bearbeiten
+								</button>
 							</div>
 						)}
 						{renderWidget(widget)}
@@ -122,12 +134,14 @@ export function WidgetLayout({
 					onSubmit={event => {
 						event.preventDefault();
 						if (!disabled && draft.title.trim() && draft.datapointId.trim()) {
-							onChange(updateWidget(widgets, selected.id, {
-								title: draft.title.trim(),
-								datapointId: draft.datapointId.trim(),
-								kind: draft.kind,
-								span: draft.span ?? 1,
-							}));
+							onChange(
+								updateWidget(widgets, selected.id, {
+									title: draft.title.trim(),
+									datapointId: draft.datapointId.trim(),
+									kind: draft.kind,
+									span: draft.span ?? 1,
+								}),
+							);
 							setSelectedId(undefined);
 							setDraft(undefined);
 						}
@@ -135,13 +149,20 @@ export function WidgetLayout({
 				>
 					<div className="flex items-center justify-between gap-3">
 						<h3 className="font-semibold">Kachel bearbeiten</h3>
-						<button type="button" onClick={() => {
-							setSelectedId(undefined);
-							setDraft(undefined);
-						}} aria-label="Editor schließen"><X size={19} /></button>
+						<button
+							type="button"
+							onClick={() => {
+								setSelectedId(undefined);
+								setDraft(undefined);
+							}}
+							aria-label="Editor schließen"
+						>
+							<X size={19} />
+						</button>
 					</div>
 					<div className="grid gap-4 sm:grid-cols-2">
-						<label className="text-sm font-semibold">Titel
+						<label className="text-sm font-semibold">
+							Titel
 							<input
 								required
 								maxLength={80}
@@ -150,16 +171,25 @@ export function WidgetLayout({
 								className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
 							/>
 						</label>
-						<label className="text-sm font-semibold">Darstellung
+						<label className="text-sm font-semibold">
+							Darstellung
 							<select
 								value={draft.kind}
 								onChange={event => setDraft({ ...draft, kind: event.target.value as WidgetKind })}
 								className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
 							>
-								{widgetRegistry.list().map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+								{widgetRegistry.list().map(entry => (
+									<option
+										key={entry.id}
+										value={entry.id}
+									>
+										{entry.name}
+									</option>
+								))}
 							</select>
 						</label>
-						<label className="text-sm font-semibold">Datenpunkt-ID
+						<label className="text-sm font-semibold">
+							Datenpunkt-ID
 							<input
 								required
 								maxLength={512}
@@ -168,10 +198,13 @@ export function WidgetLayout({
 								className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
 							/>
 						</label>
-						<label className="text-sm font-semibold">Kachelbreite
+						<label className="text-sm font-semibold">
+							Kachelbreite
 							<select
 								value={draft.span ?? 1}
-								onChange={event => setDraft({ ...draft, span: Number(event.target.value) as 1 | 2 | 3 })}
+								onChange={event =>
+									setDraft({ ...draft, span: Number(event.target.value) as 1 | 2 | 3 })
+								}
 								className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"
 							>
 								<option value="1">Schmal (1 Spalte)</option>
@@ -180,12 +213,16 @@ export function WidgetLayout({
 							</select>
 						</label>
 					</div>
-					<p className="text-xs text-slate-500">Die neue Datenpunkt-ID muss in der NextUI-Allowlist freigegeben und lesbar sein.</p>
+					<p className="text-xs text-slate-500">
+						Die neue Datenpunkt-ID muss in der NextUI-Allowlist freigegeben und lesbar sein.
+					</p>
 					<button
 						type="submit"
 						disabled={disabled || !draft.title.trim() || !draft.datapointId.trim()}
 						className="min-h-11 rounded-xl bg-sky-600 px-5 text-sm font-bold text-white disabled:opacity-50"
-					>Kacheländerungen speichern</button>
+					>
+						Kacheländerungen speichern
+					</button>
 				</form>
 			)}
 		</div>
