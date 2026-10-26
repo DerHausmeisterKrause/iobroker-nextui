@@ -267,3 +267,27 @@ Die Datenpunktabfrage für Widgetwerte bleibt getrennt und erfordert weiterhin
 den lokalen Datenpunkt-Entwicklungsmodus und passende Allowlist. Die
 Serverablage ist momentan eine einzelne gemeinsame Übersichtsseite pro
 Instanz; Benutzerberechtigungen und Mehrseiten-Editor folgen später.
+
+## Live-Updates per Server-Sent Events (Entwicklungsmodus)
+
+Widgets öffnen jetzt eine browserseitige Server-Sent-Events-Verbindung unter
+`GET /api/datapoints/events?id=<exakte-id>`. Der Adapter abonniert die
+betroffenen ioBroker-States erst bei einer aktiven Browser-Verbindung,
+verteilt Änderungen direkt und gibt das Abonnement nach dem Trennen wieder
+frei. Mehrere Browser teilen dieselben ioBroker-Abonnements.
+
+SSE wird genauso wie der Datenpunktbrowser ausschließlich bei aktiviertem
+lokalem Entwicklungsmodus mit expliziter Datenpunkt-Allowlist zugelassen.
+`common.read === false` wird geprüft; Wildcards, unbekannte Datenpunkte,
+leere oder doppelte IDs sind als Stream-Anfrage verboten. Maximal zwölf IDs
+je Stream und 24 gleichzeitige Stream-Verbindungen je Instanz. Für die
+Anzeige von Live-Daten gelten dieselben Sicherheitsgrenzen wie für
+`/api/datapoints` und `/api/datapoints/by-id`.
+
+Widget-Kacheln nutzen die Ereignisse sofort. Nach Verbindungsverlust erfolgt
+ein Rückfall auf zehnsekündiges Polling; später wird SSE erneut probiert.
+Diese Implementierung ist **kein** Ersatz für die kommende
+benutzerbezogene ACL- und Produktionsauthentifizierung. Für die Vorschau
+nur Loopback, SSH-Tunnel oder entsprechend abgesicherten lokalen Zugriff
+verwenden. Die Dashboard-Konfiguration wird weiterhin über die separate
+Dashboard-API gespeichert.
