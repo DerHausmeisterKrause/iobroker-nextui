@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import type { HttpAuthenticator } from './http-auth';
+import type { DatapointLiveHub } from './datapoint-live-hub';
 import { DashboardConflictError, InvalidDashboardError, type DashboardStore } from './dashboard-store';
 import type { DatapointListItem, DatapointListResponse, DatapointQuery } from './datapoint-api';
 
@@ -18,6 +19,7 @@ export interface WebServerOptions {
 		get(id: string): Promise<DatapointListItem | undefined>;
 	};
 	datapointApiEnabled?: boolean;
+	liveHub?: Pick<DatapointLiveHub, 'subscribe'>;
 	onError?: (error: Error) => void;
 }
 
@@ -39,6 +41,7 @@ export class NextuiWebServer {
 	private server: Server | undefined;
 	private listeningPort: number | undefined;
 	private lifecycle: Promise<void> = Promise.resolve();
+	private readonly eventClients = new Set<ServerResponse>();
 
 	public constructor(private readonly options: WebServerOptions) {}
 
@@ -60,6 +63,10 @@ export class NextuiWebServer {
 
 			this.server = undefined;
 			this.listeningPort = undefined;
+			for (const client of this.eventClients) {
+				client.end();
+			}
+			this.eventClients.clear();
 			server.closeAllConnections?.();
 			await new Promise<void>(resolve => server.close(() => resolve()));
 		});
@@ -178,6 +185,10 @@ export class NextuiWebServer {
 			this.sendJson(response, 200, { status: 'ok', server: this.getStatus() });
 			return;
 		}
+		if (requestUrl.pathname === '/api/datapoints/events') {
+			await this.handleDatapointEvents(requestUrl, request, response);
+			return;
+		}
 		if (requestUrl.pathname === '/api/datapoints/by-id') {
 			await this.handleExactDatapointRequest(requestUrl, response);
 			return;
@@ -261,6 +272,96 @@ export class NextuiWebServer {
 			throw new InvalidDashboardError('Malformed JSON.');
 		}
 		this.sendJson(response, 200, await this.options.dashboardStore.put(body));
+	}
+
+	private async handleDatapointEvents(
+		requestUrl: URL,
+		request: IncomingMessage,
+		response: ServerResponse,
+	): Promise<void> {
+		if (!this.options.datapointApiEnabled || !this.options.datapointApi || !this.options.liveHub) {
+			this.sendJson(response, 403, { error: 'Live datapoint API is disabled' });
+			return;
+		}
+		if (request.method !== 'GET') {
+			this.sendJson(response, 405, { error: 'Method not allowed' });
+			return;
+		}
+		const ids = requestUrl.searchParams.getAll('id');
+		if (
+			ids.length === 0 ||
+			ids.length > 12 ||
+			new Set(ids).size !== ids.length ||
+			ids.some(id => !id || id.length > 512 || id.trim() !== id || id.includes('*') || id.includes('\\0'))
+		) {
+			throw new InvalidRequestError('Invalid live datapoint IDs.');
+		}
+		const initial = await Promise.all(ids.map(id => this.options.datapointApi!.get(id)));
+		if (initial.some(item => !item)) {
+			this.sendJson(response, 404, { error: 'Datapoint not found or not readable' });
+			return;
+		}
+		if (this.eventClients.size >= 24) {
+			this.sendJson(response, 503, { error: 'Too many live connections' });
+			return;
+		}
+		response.writeHead(200, {
+			'Content-Type': 'text/event-stream; charset=utf-8',
+			'Cache-Control': 'no-store, no-transform',
+			'Connection': 'keep-alive',
+			'X-Accel-Buffering': 'no',
+			'X-Content-Type-Options': 'nosniff',
+		});
+		this.eventClients.add(response);
+		let closed = false;
+		let unsubscribe: (() => Promise<void>) | undefined;
+		let heartbeat: NodeJS.Timeout | undefined;
+		const send = (event: string, data: unknown): void => {
+			if (closed || response.destroyed || response.writableEnded) {
+				return;
+			}
+			if (!response.write(`event: ${event}\\ndata: ${JSON.stringify(data)}\\n\\n`)) {
+				// Drop a client which is not reading instead of buffering unlimited state values.
+				response.destroy();
+			}
+		};
+		const dispose = (): void => {
+			if (closed) {
+				return;
+			}
+			closed = true;
+			this.eventClients.delete(response);
+			if (heartbeat) {
+				clearInterval(heartbeat);
+			}
+			if (unsubscribe) {
+				void unsubscribe().catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
+			}
+		};
+		response.once('close', dispose);
+		try {
+			unsubscribe = await this.options.liveHub.subscribe(ids, id => {
+				void this.options.datapointApi!.get(id)
+					.then(item => send(item ? 'datapoint' : 'removed', item ?? { id }))
+					.catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
+			});
+			if (closed) {
+				void unsubscribe().catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
+				return;
+			}
+			for (const id of ids) {
+				const item = await this.options.datapointApi.get(id);
+				send(item ? 'datapoint' : 'removed', item ?? { id });
+			}
+			heartbeat = setInterval(() => {
+				if (!response.destroyed && !response.writableEnded && !response.write(': keepalive\\n\\n')) {
+					response.destroy();
+				}
+			}, 20_000);
+		} catch (error) {
+			response.destroy();
+			throw error;
+		}
 	}
 
 	private async handleExactDatapointRequest(requestUrl: URL, response: ServerResponse): Promise<void> {
