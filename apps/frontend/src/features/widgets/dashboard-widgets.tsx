@@ -447,7 +447,11 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 			void fetch(`/api/datapoints/by-id?id=${encodeURIComponent(config.datapointId)}`, { signal: next.signal })
 				.then(async response => {
 					if (!response.ok) {
-						throw new Error(response.status === 403 ? 'Lokale Datenpunkt-API deaktiviert' : 'Datenpunkt nicht verfügbar oder nicht freigegeben');
+						throw new Error(
+							response.status === 403
+								? 'Lokale Datenpunkt-API deaktiviert'
+								: 'Datenpunkt nicht verfügbar oder nicht freigegeben',
+						);
 					}
 					return (await response.json()) as { item: Datapoint };
 				})
@@ -546,7 +550,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 			<div className="flex items-start justify-between gap-3">
 				<h3 className="min-w-0 break-words font-bold">{config.title}</h3>
 				<div className="flex items-center gap-2">
-										<span className="text-xs text-slate-500">{live ? 'Live' : '10 s'}</span>
+					<span className="text-xs text-slate-500">{live ? 'Live' : '10 s'}</span>
 					<RefreshCw
 						size={15}
 						className="text-slate-400"

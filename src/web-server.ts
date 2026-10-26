@@ -335,18 +335,23 @@ export class NextuiWebServer {
 				clearInterval(heartbeat);
 			}
 			if (unsubscribe) {
-				void unsubscribe().catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
+				void unsubscribe().catch(error =>
+					this.options.onError?.(error instanceof Error ? error : new Error(String(error))),
+				);
 			}
 		};
 		response.once('close', dispose);
 		try {
 			unsubscribe = await this.options.liveHub.subscribe(ids, id => {
-				void this.options.datapointApi!.get(id)
+				void this.options
+					.datapointApi!.get(id)
 					.then(item => send(item ? 'datapoint' : 'removed', item ?? { id }))
 					.catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
 			});
 			if (closed) {
-				void unsubscribe().catch(error => this.options.onError?.(error instanceof Error ? error : new Error(String(error))));
+				void unsubscribe().catch(error =>
+					this.options.onError?.(error instanceof Error ? error : new Error(String(error))),
+				);
 				return;
 			}
 			for (const id of ids) {

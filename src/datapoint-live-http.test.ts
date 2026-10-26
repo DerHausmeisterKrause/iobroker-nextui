@@ -4,7 +4,11 @@ import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
 import type { DatapointListItem } from './datapoint-api';
 
-function fetchStream(port: number, path: string, authorization?: string): Promise<{
+function fetchStream(
+	port: number,
+	path: string,
+	authorization?: string,
+): Promise<{
 	status?: number;
 	res: IncomingMessage;
 	request: ClientRequest;
@@ -48,7 +52,10 @@ function fetchStream(port: number, path: string, authorization?: string): Promis
 describe('NextUI SSE transport', () => {
 	it('rejects disabled or unauthorized streams', async () => {
 		const server = new NextuiWebServer({
-			port: 0, bindAddress: '127.0.0.1', instance: 'nextui.0', version: '0.0.1',
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
 			authenticator: new HttpAuthenticator('a-long-test-access-password'),
 		});
 		await server.start();
@@ -68,14 +75,21 @@ describe('NextUI SSE transport', () => {
 
 	it('sends initial data and pushed updates and disposes the subscriber on disconnect', async () => {
 		const current: DatapointListItem = {
-			id: 'safe.0.temperature', name: 'Temperature', type: 'number',
-			value: 21, readable: true, writable: false,
+			id: 'safe.0.temperature',
+			name: 'Temperature',
+			type: 'number',
+			value: 21,
+			readable: true,
+			writable: false,
 		};
 		let onChange: ((id: string) => void) | undefined;
 		let disposed = 0;
 		let allowed = true;
 		const server = new NextuiWebServer({
-			port: 0, bindAddress: '127.0.0.1', instance: 'nextui.0', version: '0.0.1',
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
 			datapointApiEnabled: true,
 			datapointApi: {
 				get: id => Promise.resolve(allowed && id === current.id ? { ...current } : undefined),
@@ -127,7 +141,10 @@ describe('NextUI SSE transport', () => {
 
 	it('validates exact IDs before opening a stream', async () => {
 		const server = new NextuiWebServer({
-			port: 0, bindAddress: '127.0.0.1', instance: 'nextui.0', version: '0.0.1',
+			port: 0,
+			bindAddress: '127.0.0.1',
+			instance: 'nextui.0',
+			version: '0.0.1',
 			datapointApiEnabled: true,
 			datapointApi: {
 				get: () => Promise.resolve(undefined),

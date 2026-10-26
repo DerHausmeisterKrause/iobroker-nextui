@@ -119,9 +119,16 @@ describe('server-persisted dashboard widgets', () => {
 		}
 		vi.stubGlobal('EventSource', FakeEventSource);
 		const widgets = [{ id: 'widget-a', title: 'Kitchen', kind: 'number', datapointId: datapoint.id }];
-		vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) =>
-			Promise.resolve(jsonResponse(url === '/api/dashboard' ? { revision: 1, widgets } : { items: [], total: 0 })),
-		));
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockImplementation((url: string) =>
+					Promise.resolve(
+						jsonResponse(url === '/api/dashboard' ? { revision: 1, widgets } : { items: [], total: 0 }),
+					),
+				),
+		);
 		render(<DashboardWidgets />);
 		await screen.findByRole('group', { name: 'Kitchen' });
 		await waitFor(() => expect(instance).toBeDefined());
