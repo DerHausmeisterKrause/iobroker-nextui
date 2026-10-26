@@ -122,3 +122,24 @@ for opt-in migration, never silently copied or replaced.
 This is a single shared instance dashboard rather than per-user ACL
 enforcement. Read/write datapoint access is **not** implied by saving
 a widget reference and continues to use the separate allowlisted API.
+
+## Live datapoint updates (SSE)
+
+The server provides a bounded `GET /api/datapoints/events?id=...` SSE
+stream under the existing development-mode and allowlist gate. Per-stream
+read permissions are checked through `DatapointApi.get` **before** opening
+the stream, and checked again before each emitted value. Widget clients
+share ref-counted ioBroker foreign-state subscriptions, and browser
+connection termination releases the corresponding references.
+
+Adapter stateChange events update the bounded datapoint cache and fan out to
+active subscribers. Foreign-object changes invalidate the object index and
+trigger revalidation so revoked or removed datapoints send a `removed`
+event rather than another value. SSE clients receive a current snapshot on
+subscription and heartbeat comments to keep intermediaries from timing out.
+SSE uses no additional cloud services or npm runtime dependencies.
+
+The React widget uses EventSource when available, falling back to a
+10-second read-only poll after connection failure, with a periodic reconnect
+attempt. The server caps concurrent streams and each stream's ID count,
+and drops slow consumers instead of accumulating unlimited response buffers.
