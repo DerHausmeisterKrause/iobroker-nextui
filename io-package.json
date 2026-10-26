@@ -87,14 +87,29 @@
 		"bindAddress": "127.0.0.1",
 		"datapointApiDevelopmentMode": false,
 		"datapointApiAllowedPatterns": "",
-		"uiPassword": ""
+		"uiPassword": "",
+		"webTransport": "http",
+		"allowInsecureHttpLan": false,
+		"allowInsecureDataApiOverHttp": false,
+		"tlsCertificateSource": "iobroker",
+		"certPublic": "defaultPublic",
+		"certPrivate": "defaultPrivate",
+		"certChained": "",
+		"tlsCollectionId": "",
+		"tlsCertPem": "",
+		"tlsKeyPem": "",
+		"tlsCertFile": "",
+		"tlsKeyFile": "",
+		"tlsChainFile": ""
 	},
 	"objects": [],
 	"instanceObjects": [],
 	"encryptedNative": [
-		"uiPassword"
+		"uiPassword",
+		"tlsKeyPem"
 	],
 	"protectedNative": [
-		"uiPassword"
+		"uiPassword",
+		"tlsKeyPem"
 	]
 }
