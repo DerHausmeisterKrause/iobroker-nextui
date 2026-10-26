@@ -240,9 +240,9 @@
 		},
 		"datapointApiDevelopmentMode": {
 			"type": "checkbox",
-			"label": "Lokalen Datenpunkt-Entwicklungsmodus aktivieren",
+			"label": "Schreibgeschützte Datenpunkt-API aktivieren (Entwicklungsmodus)",
 			"default": false,
-			"help": "Aktiviert die schreibgeschützte Datenpunkt-API ausschließlich bei Loopback-Bindung. Nicht für LAN-Zugriff geeignet.",
+			"help": "Für alle echten Widgetwerte erforderlich. Loopback: mit expliziter Allowlist; LAN: zusätzlich HTTPS mit NextUI-Passwort. HTTP im LAN braucht zwei gesonderte unsichere Freigaben.",
 			"newLine": true,
 			"xs": 12,
 			"sm": 12,
@@ -253,7 +253,7 @@
 		"datapointApiAllowedPatterns": {
 			"type": "text",
 			"label": "Erlaubte Datenpunkt-ID-Muster",
-			"help": "Erforderlich im Entwicklungsmodus. Kommagetrennte Muster, z. B. hm-rpc.0.* oder zigbee.0.*. Ohne Muster bleibt die API deaktiviert.",
+			"help": "Pflicht für Datenpunkte in Browser und Widgets. Mehrere Muster durch Komma oder Zeilenumbruch trennen, z. B. 0_userdata.0.* oder zigbee.0.*. Ohne passende Muster gibt es keine Werte.",
 			"newLine": true,
 			"xs": 12,
 			"sm": 12,
