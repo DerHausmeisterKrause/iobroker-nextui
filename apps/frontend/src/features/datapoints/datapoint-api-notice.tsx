@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 
 interface FeatureHealth {
 	features?: {
@@ -40,6 +40,3 @@ export function DatapointApiNotice(): JSX.Element | null {
 	);
 }
 
-export function DatapointApiEnabledHint(): JSX.Element {
-	return <span className="inline-flex items-center gap-1 text-xs text-slate-500"><CheckCircle2 size={13} /> Schreibgeschützte ioBroker-Werte</span>;
-}
