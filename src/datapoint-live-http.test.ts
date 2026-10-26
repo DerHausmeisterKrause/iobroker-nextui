@@ -1,4 +1,4 @@
-import { get as httpGet } from 'node:http';
+import { get as httpGet, type IncomingMessage, type ClientRequest } from 'node:http';
 import { expect } from 'chai';
 import { NextuiWebServer } from './web-server';
 import { HttpAuthenticator } from './http-auth';
@@ -6,8 +6,8 @@ import type { DatapointListItem } from './datapoint-api';
 
 function fetchStream(port: number, path: string, authorization?: string): Promise<{
 	status?: number;
-	res: import('node:http').IncomingMessage;
-	request: import('node:http').ClientRequest;
+	res: IncomingMessage;
+	request: ClientRequest;
 	readEvent: (expected: string) => Promise<string>;
 }> {
 	return new Promise((resolve, reject) => {
