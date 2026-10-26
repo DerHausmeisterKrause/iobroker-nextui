@@ -1,6 +1,7 @@
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/card';
+import { DatapointApiNotice } from './datapoint-api-notice';
 
 type DatapointType = 'boolean' | 'number' | 'string' | 'json';
 
@@ -77,6 +78,7 @@ export function DatapointBrowser(): JSX.Element {
 					Schreibgeschützte Ansicht der über die Adapter-API bereitgestellten ioBroker-Datenpunkte.
 				</p>
 			</div>
+			<DatapointApiNotice />
 			<Card className="space-y-4 hover:translate-y-0 hover:shadow-sm">
 				<label className="relative block">
 					<span className="sr-only">Datenpunkte suchen</span>
@@ -245,7 +247,7 @@ async function loadDatapoints(
 	if (!response.ok) {
 		throw new Error(
 			response.status === 403
-				? 'Der Datenpunkt-Entwicklungsmodus ist nicht aktiviert.'
+				? 'Datenpunkt-API deaktiviert: prüfe Entwicklungsmodus, passende ID-Allowlist und bei LAN-Zugriff HTTPS mit Passwort oder die gesonderten HTTP-Testfreigaben in nextui.0.'
 				: 'Datenpunkte konnten nicht geladen werden.',
 		);
 	}

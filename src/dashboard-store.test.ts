@@ -67,6 +67,24 @@ describe('DashboardStore', () => {
 		expect(() => validateDocument({ revision: -1, widgets: [] })).to.throw(InvalidDashboardError);
 	});
 
+	it('persists optional widget width and keeps legacy layouts unchanged', async () => {
+		const { store } = createStore();
+		const wide = [{ ...initialWidgets[0], span: 2 }];
+		const updated = await store.put({ expectedRevision: 0, widgets: wide });
+		expect(updated.widgets[0]).to.have.property('span', 2);
+		expect((await store.get()).widgets).to.deep.equal(wide);
+		for (const span of [0, 4, 'full', null]) {
+			try {
+				await store.put({ expectedRevision: 1, widgets: [{ ...initialWidgets[0], span }] });
+				throw new Error('Invalid width was accepted');
+			} catch (error) {
+				expect(error).to.be.instanceOf(InvalidDashboardError);
+			}
+		}
+		const old = validateWidgets(initialWidgets);
+		expect(old[0]).not.to.have.property('span');
+	});
+
 	it('retries when a database write fails without advancing revision', async () => {
 		let saved: DashboardDocument | undefined;
 		let fail = true;

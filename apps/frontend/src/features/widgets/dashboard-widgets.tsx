@@ -1,6 +1,8 @@
 import { Activity, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/card';
+import { DatapointApiNotice } from '../datapoints/datapoint-api-notice';
+import { WidgetLayout } from './dashboard-editor';
 import { type WidgetKind, widgetRegistry } from './registry';
 
 export interface DashboardWidgetConfig {
@@ -8,6 +10,7 @@ export interface DashboardWidgetConfig {
 	title: string;
 	datapointId: string;
 	kind: WidgetKind;
+	span?: 1 | 2 | 3;
 }
 
 interface Datapoint {
@@ -92,6 +95,7 @@ export function DashboardWidgets(): JSX.Element {
 	const [error, setError] = useState<string>();
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [editing, setEditing] = useState(false);
 
 	const load = async (signal?: AbortSignal): Promise<void> => {
 		setLoading(true);
@@ -188,8 +192,16 @@ export function DashboardWidgets(): JSX.Element {
 				>
 					Dashboard neu laden
 				</button>
+				<button
+					type="button"
+					disabled={!document || loading || saving}
+					onClick={() => setEditing(current => !current)}
+					className="min-h-10 rounded-xl border border-sky-400 px-4 text-sm font-semibold disabled:opacity-40"
+				>
+					{editing ? 'Editor schließen' : 'Dashboard bearbeiten'}
+				</button>
 				<p className="text-xs text-slate-500">
-					{widgets.length} von {MAX_WIDGETS} Kacheln · Werte alle 10 Sekunden
+					{widgets.length} von {MAX_WIDGETS} Kacheln · Live-Updates mit Polling-Fallback
 				</p>
 			</div>
 			{loading && (
@@ -231,6 +243,7 @@ export function DashboardWidgets(): JSX.Element {
 					</button>
 				</Card>
 			)}
+			<DatapointApiNotice />
 			<Card className="space-y-3 hover:translate-y-0">
 				<div className="flex items-center gap-2">
 					<Plus
@@ -256,15 +269,18 @@ export function DashboardWidgets(): JSX.Element {
 						<p className="mt-2 text-sm text-slate-500">Suche oben einen freigegebenen Datenpunkt.</p>
 					</div>
 				) : (
-					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{widgets.map(widget => (
+					<WidgetLayout
+						widgets={widgets}
+						editing={editing}
+						disabled={saving || loading}
+						onChange={updated => void save(updated)}
+						renderWidget={widget => (
 							<DatapointWidget
-								key={widget.id}
 								config={widget}
 								onRemove={() => void save(widgets.filter(item => item.id !== widget.id))}
 							/>
-						))}
-					</div>
+						)}
+					/>
 				))}
 		</section>
 	);
@@ -295,7 +311,7 @@ function WidgetConfigurator({
 					if (!response.ok) {
 						throw new Error(
 							response.status === 403
-								? 'Datenpunkt-API deaktiviert. Aktiviere den lokalen Entwicklungsmodus mit Allowlist und nutze den SSH-Tunnel.'
+								? 'Datenpunkt-API deaktiviert. In nextui.0: Entwicklungsmodus und Allowlist aktivieren; im LAN HTTPS mit NextUI-Passwort nutzen (HTTP nur mit beiden unsicheren Freigaben).'
 								: 'Datenpunkte konnten nicht geladen werden.',
 						);
 					}
@@ -449,7 +465,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 					if (!response.ok) {
 						throw new Error(
 							response.status === 403
-								? 'Lokale Datenpunkt-API deaktiviert'
+								? 'Datenpunkt-API deaktiviert: Entwicklungsmodus, ID-Allowlist und LAN-HTTPS/Passwort prüfen'
 								: 'Datenpunkt nicht verfügbar oder nicht freigegeben',
 						);
 					}

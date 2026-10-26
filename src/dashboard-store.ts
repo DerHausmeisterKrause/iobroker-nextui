@@ -4,6 +4,7 @@ export interface SavedWidget {
 	title: string;
 	datapointId: string;
 	kind: 'number' | 'boolean' | 'text';
+	span?: 1 | 2 | 3;
 }
 
 export interface DashboardDocument {
@@ -66,7 +67,10 @@ export function validateWidgets(value: unknown): SavedWidget[] {
 		if (w.kind !== 'number' && w.kind !== 'boolean' && w.kind !== 'text') {
 			throw new InvalidDashboardError('Invalid widget kind.');
 		}
-		return { id, title, datapointId, kind: w.kind };
+		if (w.span !== undefined && w.span !== 1 && w.span !== 2 && w.span !== 3) {
+			throw new InvalidDashboardError('Invalid widget width.');
+		}
+		return { id, title, datapointId, kind: w.kind, ...(w.span === undefined ? {} : { span: w.span }) };
 	});
 }
 

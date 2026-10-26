@@ -145,6 +145,13 @@ class Nextui extends utils.Adapter {
 			datapointApi: this.datapointApi,
 			datapointApiEnabled,
 			liveHub: this.liveHub,
+			datapointApiStatusHint: !this.config.datapointApiDevelopmentMode
+				? 'Datenpunkt-Entwicklungsmodus in nextui.0 aktivieren.'
+				: allowedPatterns.length === 0
+					? 'Erlaubte Datenpunkt-ID-Muster in nextui.0 konfigurieren (z. B. 0_userdata.0.*).'
+					: !sensitiveAccessAllowed
+						? 'Für LAN-Zugriff: HTTPS und NextUI-Passwort verwenden. Bei HTTP sind zwei ausdrückliche unsichere LAN-Freigaben und ein Passwort erforderlich.'
+						: 'Datenpunkt-API nicht verfügbar. Adapterlog prüfen.',
 			onError: error => this.log.error(`HTTP-Serverfehler: ${error.message}`),
 		});
 
