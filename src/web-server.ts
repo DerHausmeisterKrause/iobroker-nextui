@@ -1,4 +1,6 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+import type { SecureContextOptions } from 'node:tls';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import type { HttpAuthenticator } from './http-auth';
@@ -12,6 +14,8 @@ export interface WebServerOptions {
 	instance: string;
 	version: string;
 	frontendDirectory?: string;
+	transport?: 'http' | 'https';
+	tlsOptions?: SecureContextOptions;
 	authenticator?: HttpAuthenticator;
 	dashboardStore?: DashboardStore;
 	datapointApi?: {
@@ -29,6 +33,7 @@ export interface WebServerStatus {
 	bindAddress: string;
 	instance: string;
 	version: string;
+	transport: 'http' | 'https';
 }
 
 type LifecycleOperation = () => Promise<void>;
@@ -79,6 +84,7 @@ export class NextuiWebServer {
 			bindAddress: this.options.bindAddress,
 			instance: this.options.instance,
 			version: this.options.version,
+			transport: this.options.transport ?? 'http',
 		};
 	}
 
@@ -90,7 +96,7 @@ export class NextuiWebServer {
 
 	private startServer(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			const server = createServer((request, response) => {
+			const handler = (request: IncomingMessage, response: ServerResponse): void => {
 				void this.handleRequest(request, response).catch(error => {
 					if (error instanceof DashboardConflictError) {
 						this.sendJson(response, 409, { error: 'Dashboard was modified by another browser' });
@@ -117,7 +123,10 @@ export class NextuiWebServer {
 						response.end();
 					}
 				});
-			});
+			};
+			const server = this.options.transport === 'https'
+				? createHttpsServer({ ...this.options.tlsOptions, minVersion: 'TLSv1.2' }, handler)
+				: createHttpServer(handler);
 			this.server = server;
 
 			const onRuntimeError = (error: NodeJS.ErrnoException): void => {
