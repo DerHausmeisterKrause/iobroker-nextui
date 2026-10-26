@@ -24,7 +24,7 @@ describe('DatapointBrowser', () => {
 	it('shows an error when the development API is unavailable', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403 }));
 		render(<DatapointBrowser />);
-		expect(await screen.findByRole('alert')).toHaveTextContent('nicht aktiviert');
+		expect(await screen.findByRole('alert')).toHaveTextContent('Datenpunkt-API deaktiviert');
 	});
 
 	it('shows an empty result message', async () => {
