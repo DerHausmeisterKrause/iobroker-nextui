@@ -105,16 +105,16 @@ describe('server-persisted dashboard widgets', () => {
 		class FakeEventSource {
 			public onopen?: () => void;
 			public onerror?: () => void;
-			private readonly listeners = new Map<string, (event: MessageEvent<string>) => void>();
+			private readonly listeners = new Map<string, EventListener>();
 			public constructor(public readonly url: string) {
 				instance = this;
 			}
 			public addEventListener(event: string, callback: EventListener): void {
-				this.listeners.set(event, callback as (event: MessageEvent<string>) => void);
+				this.listeners.set(event, callback);
 			}
 			public close(): void {}
 			public push(event: string, item: unknown): void {
-				this.listeners.get(event)?.({ data: JSON.stringify(item) } as MessageEvent<string>);
+				this.listeners.get(event)?.(new MessageEvent(event, { data: JSON.stringify(item) }));
 			}
 		}
 		vi.stubGlobal('EventSource', FakeEventSource);
