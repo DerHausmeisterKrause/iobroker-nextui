@@ -472,7 +472,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 					}
 				});
 		};
-		let openStream: () => void;
+		const connection = { open: (): void => undefined };
 		const startPolling = (retry: boolean): void => {
 			if (!active || pollingTimer) {
 				return;
@@ -486,11 +486,11 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 						clearInterval(pollingTimer);
 						pollingTimer = undefined;
 					}
-					openStream();
+					connection.open();
 				}, 30_000);
 			}
 		};
-		openStream = (): void => {
+		const openStream = (): void => {
 			if (!active || typeof EventSource === 'undefined') {
 				startPolling(false);
 				return;
@@ -527,6 +527,7 @@ function DatapointWidget({ config, onRemove }: { config: DashboardWidgetConfig; 
 				startPolling(true);
 			};
 		};
+		connection.open = openStream;
 		openStream();
 		return () => {
 			active = false;
