@@ -22,11 +22,25 @@ describe('NextUI built-in HTTPS server', function () {
 		const certFile = join(folder, 'cert.pem');
 		let server: NextuiWebServer | undefined;
 		try {
-			execFileSync('openssl', [
-				'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-				'-keyout', keyFile, '-out', certFile, '-days', '1',
-				'-subj', '/CN=localhost',
-			], { stdio: 'ignore', timeout: 5_000 });
+			execFileSync(
+				'openssl',
+				[
+					'req',
+					'-x509',
+					'-newkey',
+					'rsa:2048',
+					'-nodes',
+					'-keyout',
+					keyFile,
+					'-out',
+					certFile,
+					'-days',
+					'1',
+					'-subj',
+					'/CN=localhost',
+				],
+				{ stdio: 'ignore', timeout: 5_000 },
+			);
 			const provider: IoBrokerCertificateProvider = {
 				getCertificatesAsync: () => Promise.resolve([null]),
 				getForeignObjectAsync: () => Promise.resolve(null),
@@ -44,16 +58,24 @@ describe('NextUI built-in HTTPS server', function () {
 			const port = server.getStatus().port;
 			expect(server.getStatus().transport).to.equal('https');
 			const health = await new Promise<{ status?: number; body: string }>((resolve, reject) => {
-				const req = httpsGet({
-					hostname: '127.0.0.1', port, path: '/api/health', rejectUnauthorized: false,
-				}, response => {
-					const chunks: Buffer[] = [];
-					response.on('data', chunk => chunks.push(Buffer.from(chunk)));
-					response.on('end', () => resolve({
-						status: response.statusCode,
-						body: Buffer.concat(chunks).toString('utf8'),
-					}));
-				});
+				const req = httpsGet(
+					{
+						hostname: '127.0.0.1',
+						port,
+						path: '/api/health',
+						rejectUnauthorized: false,
+					},
+					response => {
+						const chunks: Buffer[] = [];
+						response.on('data', chunk => chunks.push(Buffer.from(chunk)));
+						response.on('end', () =>
+							resolve({
+								status: response.statusCode,
+								body: Buffer.concat(chunks).toString('utf8'),
+							}),
+						);
+					},
+				);
 				req.on('error', reject);
 			});
 			expect(health.status).to.equal(200);

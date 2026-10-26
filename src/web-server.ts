@@ -124,9 +124,10 @@ export class NextuiWebServer {
 					}
 				});
 			};
-			const server = this.options.transport === 'https'
-				? createHttpsServer({ ...this.options.tlsOptions, minVersion: 'TLSv1.2' }, handler)
-				: createHttpServer(handler);
+			const server =
+				this.options.transport === 'https'
+					? createHttpsServer({ ...this.options.tlsOptions, minVersion: 'TLSv1.2' }, handler)
+					: createHttpServer(handler);
 			this.server = server;
 
 			const onRuntimeError = (error: NodeJS.ErrnoException): void => {

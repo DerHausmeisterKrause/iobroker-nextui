@@ -65,10 +65,18 @@ class Nextui extends utils.Adapter {
 			return;
 		}
 		if (!local && transport === 'http') {
-			this.log.warn('UNSICHERER LAN-MODUS: HTTP überträgt Seiten und ggf. Basic-Zugangsdaten unverschlüsselt. Nur in einem vertrauenswürdigen Testnetz verwenden!');
+			this.log.warn(
+				'UNSICHERER LAN-MODUS: HTTP überträgt Seiten und ggf. Basic-Zugangsdaten unverschlüsselt. Nur in einem vertrauenswürdigen Testnetz verwenden!',
+			);
 		}
-		if (transport === 'https' && (!this.config.certPublic || !this.config.certPrivate) && (!this.config.tlsCertificateSource || this.config.tlsCertificateSource === 'iobroker')) {
-			this.log.warn('NextUI HTTPS nutzt möglicherweise die gemeinsamen ioBroker-Standardzertifikate. Bitte für sicheren LAN-Zugriff eigene Zertifikate einrichten.');
+		if (
+			transport === 'https' &&
+			(!this.config.certPublic || !this.config.certPrivate) &&
+			(!this.config.tlsCertificateSource || this.config.tlsCertificateSource === 'iobroker')
+		) {
+			this.log.warn(
+				'NextUI HTTPS nutzt möglicherweise die gemeinsamen ioBroker-Standardzertifikate. Bitte für sicheren LAN-Zugriff eigene Zertifikate einrichten.',
+			);
 		}
 		let authenticator: HttpAuthenticator | undefined;
 		const uiPassword = this.config.uiPassword ?? '';
@@ -82,19 +90,21 @@ class Nextui extends utils.Adapter {
 				return;
 			}
 		} else {
-			this.log.warn('NextUI läuft ohne Anmeldung. Datenpunkt-API und Dashboard-Speicherung bleiben für den nichtlokalen Zugriff gesperrt.');
+			this.log.warn(
+				'NextUI läuft ohne Anmeldung. Datenpunkt-API und Dashboard-Speicherung bleiben für den nichtlokalen Zugriff gesperrt.',
+			);
 		}
 		const allowedPatterns = parseAllowedPatterns(this.config.datapointApiAllowedPatterns);
 		const remoteSensitiveAccess =
 			!local &&
 			!!authenticator &&
 			(transport === 'https' ||
-				(transport === 'http' && this.config.allowInsecureHttpLan === true && this.config.allowInsecureDataApiOverHttp === true));
+				(transport === 'http' &&
+					this.config.allowInsecureHttpLan === true &&
+					this.config.allowInsecureDataApiOverHttp === true));
 		const sensitiveAccessAllowed = local || remoteSensitiveAccess;
 		const datapointApiEnabled =
-			this.config.datapointApiDevelopmentMode === true &&
-			sensitiveAccessAllowed &&
-			allowedPatterns.length > 0;
+			this.config.datapointApiDevelopmentMode === true && sensitiveAccessAllowed && allowedPatterns.length > 0;
 		if (this.config.datapointApiDevelopmentMode === true && !datapointApiEnabled) {
 			this.log.warn(
 				'Die Datenpunkt-API bleibt deaktiviert: explizite ID-Allowlist und entweder Loopback oder geschützter LAN-Modus (HTTPS mit Passwort; HTTP nur bei zusätzlicher unsicherer Freigabe) sind erforderlich.',
@@ -104,21 +114,22 @@ class Nextui extends utils.Adapter {
 			? new DatapointApi(this as unknown as DatapointAdapterApi, allowedPatterns)
 			: undefined;
 		this.liveHub = this.datapointApi ? new DatapointLiveHub(this) : undefined;
-		this.dashboardStore = authenticator && sensitiveAccessAllowed
-			? new DashboardStore({
-					read: async () => {
-						const stored = await this.getObjectAsync('dashboard');
-						return stored?.native?.dashboard;
-					},
-					write: async document => {
-						await this.setObjectAsync('dashboard', {
-							type: 'channel',
-							common: { name: 'NextUI Dashboard' },
-							native: { dashboard: document },
-						});
-					},
-				})
-			: undefined;
+		this.dashboardStore =
+			authenticator && sensitiveAccessAllowed
+				? new DashboardStore({
+						read: async () => {
+							const stored = await this.getObjectAsync('dashboard');
+							return stored?.native?.dashboard;
+						},
+						write: async document => {
+							await this.setObjectAsync('dashboard', {
+								type: 'channel',
+								common: { name: 'NextUI Dashboard' },
+								native: { dashboard: document },
+							});
+						},
+					})
+				: undefined;
 		this.webServer = new NextuiWebServer({
 			port,
 			bindAddress,
@@ -142,7 +153,9 @@ class Nextui extends utils.Adapter {
 				}
 			}
 			await this.webServer.start();
-			this.log.info(`NextUI-Webserver für ${instance} läuft auf ${transport}://${bindAddress}:${this.webServer.getStatus().port}`);
+			this.log.info(
+				`NextUI-Webserver für ${instance} läuft auf ${transport}://${bindAddress}:${this.webServer.getStatus().port}`,
+			);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.log.error(`HTTP-Server konnte nicht gestartet werden: ${message}`);

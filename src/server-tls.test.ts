@@ -1,5 +1,10 @@
 import { expect } from 'chai';
-import { isLoopbackAddress, resolveTlsOptions, validateHttpTransport, type IoBrokerCertificateProvider } from './server-tls';
+import {
+	isLoopbackAddress,
+	resolveTlsOptions,
+	validateHttpTransport,
+	type IoBrokerCertificateProvider,
+} from './server-tls';
 
 describe('NextUI direct HTTP/HTTPS configuration', () => {
 	const provider: IoBrokerCertificateProvider = {
@@ -12,18 +17,34 @@ describe('NextUI direct HTTP/HTTPS configuration', () => {
 		expect(isLoopbackAddress('::1')).to.equal(true);
 		expect(isLoopbackAddress('LOCALHOST')).to.equal(true);
 		expect(isLoopbackAddress('0.0.0.0')).to.equal(false);
-		expect(() => validateHttpTransport({
-			transport: 'http', bindAddress: '127.0.0.1', allowInsecureHttpLan: false,
-		})).not.to.throw();
-		expect(() => validateHttpTransport({
-			transport: 'http', bindAddress: '0.0.0.0', allowInsecureHttpLan: false,
-		})).to.throw('ausdrückliche Freigabe');
-		expect(() => validateHttpTransport({
-			transport: 'http', bindAddress: '0.0.0.0', allowInsecureHttpLan: true,
-		})).not.to.throw();
-		expect(() => validateHttpTransport({
-			transport: 'https', bindAddress: '192.168.178.79', allowInsecureHttpLan: false,
-		})).not.to.throw();
+		expect(() =>
+			validateHttpTransport({
+				transport: 'http',
+				bindAddress: '127.0.0.1',
+				allowInsecureHttpLan: false,
+			}),
+		).not.to.throw();
+		expect(() =>
+			validateHttpTransport({
+				transport: 'http',
+				bindAddress: '0.0.0.0',
+				allowInsecureHttpLan: false,
+			}),
+		).to.throw('ausdrückliche Freigabe');
+		expect(() =>
+			validateHttpTransport({
+				transport: 'http',
+				bindAddress: '0.0.0.0',
+				allowInsecureHttpLan: true,
+			}),
+		).not.to.throw();
+		expect(() =>
+			validateHttpTransport({
+				transport: 'https',
+				bindAddress: '192.168.178.79',
+				allowInsecureHttpLan: false,
+			}),
+		).not.to.throw();
 	});
 
 	it('fails closed when a configured ioBroker TLS certificate is missing', async () => {
@@ -45,10 +66,15 @@ describe('NextUI direct HTTP/HTTPS configuration', () => {
 			getForeignObjectAsync: () => Promise.resolve(null),
 		};
 		try {
-			await resolveTlsOptions({
-				source: 'iobroker', publicCertificate: 'myPublic',
-				privateCertificate: 'myPrivate', chainCertificate: 'myChain',
-			}, configured);
+			await resolveTlsOptions(
+				{
+					source: 'iobroker',
+					publicCertificate: 'myPublic',
+					privateCertificate: 'myPrivate',
+					chainCertificate: 'myChain',
+				},
+				configured,
+			);
 		} catch {
 			// Expected: secure context creation rejects a fake certificate/key.
 		}

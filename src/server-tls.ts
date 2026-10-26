@@ -26,9 +26,11 @@ export interface CertificatesFromIoBroker {
 }
 
 export interface IoBrokerCertificateProvider {
-	getCertificatesAsync(publicName: string, privateName: string, chainName: string): Promise<
-		[CertificatesFromIoBroker | null | undefined, ...unknown[]]
-	>;
+	getCertificatesAsync(
+		publicName: string,
+		privateName: string,
+		chainName: string,
+	): Promise<[CertificatesFromIoBroker | null | undefined, ...unknown[]]>;
 	getForeignObjectAsync(id: string): Promise<ioBroker.Object | null | undefined>;
 }
 
